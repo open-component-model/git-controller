@@ -1,0 +1,16 @@
+domain: delivery.ocm.software
+layout:
+- go.kubebuilder.io/v3
+projectName: git-sync-controller
+repo: github.com/open-component-model/git-sync-controller
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: delivery.ocm.software
+  group: delivery
+  kind: GitSync
+  path: github.com/open-component-model/git-sync-controller/api/v1alpha1
+  version: v1alpha1
+version: "3"
