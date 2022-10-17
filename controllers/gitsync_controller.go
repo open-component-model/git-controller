@@ -33,9 +33,9 @@ type GitSyncReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=delivery.delivery.ocm.software,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=delivery.delivery.ocm.software,resources=gitsyncs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=delivery.delivery.ocm.software,resources=gitsyncs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -1,4 +1,4 @@
-apiVersion: delivery.delivery.ocm.software/v1alpha1
+apiVersion: delivery.ocm.software/v1alpha1
 kind: GitSync
 metadata:
   labels:
