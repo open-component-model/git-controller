@@ -20,22 +20,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type Ref struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of GitSync. Edit gitsync_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	AuthRef     Ref    `json:"authRef"`
+	Destination string `json:"destination"`
 }
 
 // GitSyncStatus defines the observed state of GitSync
 type GitSyncStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Digest string `json:"digest,omitempty"`
 }
 
 //+kubebuilder:object:root=true
