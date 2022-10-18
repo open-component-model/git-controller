@@ -20,6 +20,9 @@ import (
 	"flag"
 	"os"
 
+	"github.com/open-component-model/git-sync-controller/pkg/oci"
+	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -39,6 +42,7 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	ociAgent = "git-sync-controller/v1alpha1"
 )
 
 func init() {
@@ -96,18 +100,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	ociClient := oci.NewClient(ociRegistryAddr, ociAgent)
+	gitClient := gogit.NewGoGit(ctrl.Log, ociClient)
 	if err = (&controllers.GitSyncReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Git:    gitClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
-		os.Exit(1)
-	}
-	if err = (&controllers.OCMSnapshotReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "OCMSnapshot")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

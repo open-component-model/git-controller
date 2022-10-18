@@ -21,16 +21,18 @@ import (
 
 type Git struct {
 	Logger logr.Logger
+	Client pkg.OCIClient
 }
 
-func NewGoGit(log logr.Logger) *Git {
+func NewGoGit(log logr.Logger, ociClient pkg.OCIClient) *Git {
 	return &Git{
 		Logger: log,
+		Client: ociClient,
 	}
 }
 
 func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) error {
-	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotLocation, "url", opts.URL)
+	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotURL, "url", opts.URL)
 	// Get the snapshot from snapshotLocation
 	// move to this tmp folder or ( Fetch ) to this tmp folder once the git remote is initialised?
 	dir, err := os.MkdirTemp("", "clone")
@@ -52,7 +54,7 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) error {
 	}
 
 	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{config.RefSpec(opts.Ref)},
+		RefSpecs: []config.RefSpec{config.RefSpec(opts.Branch)},
 		Depth:    1,
 	}
 
@@ -81,11 +83,15 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) error {
 		return fmt.Errorf("failed to create a worktree: %w", err)
 	}
 
-	// TODO: move the snapshot now
-	// Extract or add as is?
+	// Pull will result in an untar-ed list of files.
+	if err := g.Client.Pull(ctx, opts.SnapshotURL, dir); err != nil {
+		return fmt.Errorf("failed to pull from OCI repository: %w", err)
+	}
+	// Add all extracted files.
 	if err := w.AddGlob("."); err != nil {
 		return fmt.Errorf("failed to add items to worktree: %w", err)
 	}
+
 	commitOpts := &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  opts.Name,

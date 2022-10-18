@@ -36,23 +36,74 @@ spec:
             description: GitSyncSpec defines the desired state of GitSync
             properties:
               authRef:
+                description: Ref defines a name and namespace ref to any object.
                 properties:
-                  kind:
-                    type: string
                   name:
                     type: string
                   namespace:
                     type: string
                 required:
-                - kind
+                - name
+                - namespace
+                type: object
+              branch:
+                type: string
+              commitTemplate:
+                description: CommitTemplate defines the details of the commit to the
+                  external repository.
+                properties:
+                  email:
+                    type: string
+                  message:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - email
+                - message
+                - name
+                type: object
+              componentRef:
+                description: Ref defines a name and namespace ref to any object.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
                 - name
                 - namespace
                 type: object
               destination:
                 type: string
+              interval:
+                description: A Duration represents the elapsed time between two instants
+                  as an int64 nanosecond count. The representation limits the largest
+                  representable duration to approximately 290 years.
+                format: int64
+                type: integer
+              snapshotRef:
+                description: Ref defines a name and namespace ref to any object.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              url:
+                type: string
             required:
             - authRef
+            - branch
+            - commitTemplate
+            - componentRef
             - destination
+            - interval
+            - snapshotRef
+            - url
             type: object
           status:
             description: GitSyncStatus defines the observed state of GitSync

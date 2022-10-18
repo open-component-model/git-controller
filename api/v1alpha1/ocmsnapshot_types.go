@@ -22,6 +22,7 @@ import (
 
 // OCMSnapshotSpec defines the desired state of OCMSnapshot
 type OCMSnapshotSpec struct {
+	URL string `json:"url"`
 }
 
 // OCMSnapshotStatus defines the observed state of OCMSnapshot

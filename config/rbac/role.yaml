@@ -6,6 +6,13 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+- apiGroups:
   - delivery.ocm.software
   resources:
   - gitsyncs
@@ -31,3 +38,15 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - ocmresources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

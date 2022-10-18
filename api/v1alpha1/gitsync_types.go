@@ -17,19 +17,34 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Ref defines a name and namespace ref to any object.
 type Ref struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Kind      string `json:"kind"`
+}
+
+// CommitTemplate defines the details of the commit to the external repository.
+type CommitTemplate struct {
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Message string `json:"message"`
 }
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
-	AuthRef     Ref    `json:"authRef"`
-	Destination string `json:"destination"`
+	ComponentRef   Ref             `json:"componentRef"`
+	SnapshotRef    Ref             `json:"snapshotRef"`
+	Interval       time.Duration   `json:"interval"`
+	URL            string          `json:"url"`
+	Branch         string          `json:"branch"`
+	AuthRef        Ref             `json:"authRef"`
+	Destination    string          `json:"destination"`
+	CommitTemplate *CommitTemplate `json:"commitTemplate"`
 }
 
 // GitSyncStatus defines the observed state of GitSync

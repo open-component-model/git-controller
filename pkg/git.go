@@ -24,13 +24,13 @@ type Auth struct {
 
 // PushOptions contains settings for a push action.
 type PushOptions struct {
-	Auth             *Auth
-	URL              string
-	Message          string
-	Name             string
-	Email            string
-	SnapshotLocation string
-	Ref              string
+	Auth        *Auth
+	URL         string
+	Message     string
+	Name        string
+	Email       string
+	SnapshotURL string
+	Branch      string
 }
 
 // Git defines an interface to abstract git operations.
