@@ -50,14 +50,17 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr                 string
-		enableLeaderElection        bool
-		probeAddr                   string
-		sourceControllerStoragePath string
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+		storagePath          string
+		ociRegistryAddr      string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&sourceControllerStoragePath, "source-controller-storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the POD.")
+	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", ":5000", "The address to the OCI registry.")
+	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
+
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -98,6 +101,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
+		os.Exit(1)
+	}
+	if err = (&controllers.OCMSnapshotReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OCMSnapshot")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

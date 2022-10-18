@@ -1,0 +1,27 @@
+# permissions for end users to view ocmsnapshots.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: ocmsnapshot-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: git-sync-controller
+    app.kubernetes.io/part-of: git-sync-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: ocmsnapshot-viewer-role
+rules:
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - ocmsnapshots
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - ocmsnapshots/status
+  verbs:
+  - get
