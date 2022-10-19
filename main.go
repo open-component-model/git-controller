@@ -20,8 +20,8 @@ import (
 	"flag"
 	"os"
 
-	"github.com/open-component-model/git-sync-controller/pkg/oci"
 	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
+	"github.com/open-component-model/git-sync-controller/pkg/providers/oci"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.

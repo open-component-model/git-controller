@@ -36,5 +36,5 @@ type PushOptions struct {
 
 // Git defines an interface to abstract git operations.
 type Git interface {
-	Push(ctx context.Context, opts *PushOptions) error
+	Push(ctx context.Context, opts *PushOptions) (string, error)
 }

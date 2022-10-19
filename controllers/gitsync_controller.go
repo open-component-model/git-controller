@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -61,6 +62,11 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	log.V(4).Info("found reconciling object", "gitSync", gitSync)
 
+	if gitSync.Status.Digest != "" {
+		log.Info("GitSync object already synced; status contains digest information", "digest", gitSync.Status.Digest)
+		return ctrl.Result{}, nil
+	}
+
 	snapshot := &v1alpha1.OCMSnapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: gitSync.Spec.SnapshotRef.Namespace,
@@ -86,11 +92,25 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	r.parseAuthSecret(authSecret, opts)
 
-	if err := r.Git.Push(ctx, opts); err != nil {
+	digest, err := r.Git.Push(ctx, opts)
+	if err != nil {
 		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to push to git repository: %w", err)
 	}
+	// Initialize the patch helper.
+	patchHelper, err := patch.NewHelper(gitSync, r.Client)
+	if err != nil {
+		return ctrl.Result{
+			RequeueAfter: 1 * time.Minute,
+		}, fmt.Errorf("failed to create patch helper: %w", err)
+	}
 
-	// TODO: update with status so we know that GitSync has been processed.
+	gitSync.Status.Digest = digest
+	if err := patchHelper.Patch(ctx, gitSync); err != nil {
+		return ctrl.Result{
+			RequeueAfter: 1 * time.Minute,
+		}, fmt.Errorf("failed to patch git sync object: %w", err)
+	}
+	log.V(4).Info("patch successful")
 
 	return ctrl.Result{}, nil
 }

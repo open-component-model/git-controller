@@ -27,10 +27,11 @@ func NewClient(url, agent string) *Client {
 }
 
 // Pull takes a snapshot name and pulls it from the OCI repository.
-func (o *Client) Pull(ctx context.Context, url, outDir string) error {
-	if _, err := o.client.Pull(ctx, url, outDir); err != nil {
-		return fmt.Errorf("failed to pull snapshot: %w", err)
+func (o *Client) Pull(ctx context.Context, url, outDir string) (string, error) {
+	m, err := o.client.Pull(ctx, url, outDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to pull snapshot: %w", err)
 	}
 
-	return nil
+	return m.Digest, nil
 }
