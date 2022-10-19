@@ -74,14 +74,14 @@ spec:
                 - name
                 - namespace
                 type: object
-              destination:
-                type: string
               interval:
                 description: A Duration represents the elapsed time between two instants
                   as an int64 nanosecond count. The representation limits the largest
                   representable duration to approximately 290 years.
                 format: int64
                 type: integer
+              prune:
+                type: boolean
               snapshotRef:
                 description: Ref defines a name and namespace ref to any object.
                 properties:
@@ -102,7 +102,6 @@ spec:
             - branch
             - commitTemplate
             - componentRef
-            - destination
             - interval
             - snapshotRef
             - subPath

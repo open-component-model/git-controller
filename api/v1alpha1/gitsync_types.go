@@ -43,9 +43,9 @@ type GitSyncSpec struct {
 	URL            string          `json:"url"`
 	Branch         string          `json:"branch"`
 	AuthRef        Ref             `json:"authRef"`
-	Destination    string          `json:"destination"`
 	CommitTemplate *CommitTemplate `json:"commitTemplate"`
 	SubPath        string          `json:"subPath"`
+	Prune          bool            `json:"prune,omitempty"`
 }
 
 // GitSyncStatus defines the observed state of GitSync

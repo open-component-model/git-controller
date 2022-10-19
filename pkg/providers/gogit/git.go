@@ -7,14 +7,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/go-logr/logr"
 
 	"github.com/open-component-model/git-sync-controller/pkg"
@@ -34,34 +32,16 @@ func NewGoGit(log logr.Logger, ociClient pkg.OCIClient) *Git {
 
 func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotURL, "url", opts.URL, "sub-path", opts.SubPath)
-	// Get the snapshot from snapshotLocation
-	// move to this tmp folder or ( Fetch ) to this tmp folder once the git remote is initialised?
+
 	dir, err := os.MkdirTemp("", "clone")
 	if err != nil {
 		return "", fmt.Errorf("failed to initialise temp folder: %w", err)
 	}
 
-	fs := osfs.New(dir)
-	r, err := git.Init(filesystem.NewStorage(fs, cache.NewObjectLRUDefault()), nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to initialise git repo: %w", err)
-	}
-
-	if _, err = r.CreateRemote(&config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{opts.URL},
-	}); err != nil {
-		return "", fmt.Errorf("failed to create remote: %w", err)
-	}
-
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{config.RefSpec(opts.Branch)},
-		Depth:    1,
-	}
-
+	var auth transport.AuthMethod
 	if opts.Auth != nil {
 		if v := opts.Auth.BasicAuth; v != nil {
-			fetchOptions.Auth = &http.BasicAuth{
+			auth = &http.BasicAuth{
 				Username: v.Username,
 				Password: v.Password,
 			}
@@ -71,12 +51,20 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to create public key authentication: %w", err)
 			}
-			fetchOptions.Auth = pb
+			auth = pb
 		}
 	}
 
-	if err := r.Fetch(fetchOptions); err != nil {
-		return "", fmt.Errorf("failed to fetch remote ref '%s': %w", "main", err)
+	cloneOptions := &git.CloneOptions{
+		URL:           opts.URL,
+		Depth:         1,
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", opts.Branch)),
+		Auth:          auth,
+	}
+
+	r, err := git.PlainClone(dir, false, cloneOptions)
+	if err != nil {
+		return "", fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	w, err := r.Worktree()
@@ -88,11 +76,13 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	if err := os.MkdirAll(dir, 0777); err != nil {
 		return "", fmt.Errorf("failed to create subPath: %w", err)
 	}
-	// Pull will result in an untar-ed list of files.
+
+	//Pull will result in an untar-ed list of files.
 	digest, err := g.Client.Pull(ctx, opts.SnapshotURL, dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to pull from OCI repository: %w", err)
 	}
+
 	// Add all extracted files.
 	if err := w.AddGlob("."); err != nil {
 		return "", fmt.Errorf("failed to add items to worktree: %w", err)
@@ -110,7 +100,11 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 		return "", fmt.Errorf("failed to commit changes: %w", err)
 	}
 	g.Logger.V(4).Info("pushing commit", "commit", commit)
-	if err := r.Push(&git.PushOptions{}); err != nil {
+	pushOptions := &git.PushOptions{
+		Prune: opts.Prune,
+		Auth:  auth,
+	}
+	if err := r.Push(pushOptions); err != nil {
 		return "", fmt.Errorf("failed to push new snapshot: %w", err)
 	}
 	return digest, nil

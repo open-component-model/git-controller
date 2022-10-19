@@ -78,7 +78,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: gitSync.Spec.AuthRef.Namespace,
 		Name:      gitSync.Spec.AuthRef.Name,
-	}, snapshot); err != nil {
+	}, authSecret); err != nil {
 		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to find authentication secret: %w", err)
 	}
 	opts := &providers.PushOptions{

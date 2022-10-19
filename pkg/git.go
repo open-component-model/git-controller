@@ -32,6 +32,7 @@ type PushOptions struct {
 	SnapshotURL string
 	Branch      string
 	SubPath     string
+	Prune       bool
 }
 
 // Git defines an interface to abstract git operations.
