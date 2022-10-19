@@ -31,6 +31,7 @@ type PushOptions struct {
 	Email       string
 	SnapshotURL string
 	Branch      string
+	SubPath     string
 }
 
 // Git defines an interface to abstract git operations.

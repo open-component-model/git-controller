@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-git/go-billy/v5/osfs"
@@ -32,7 +33,7 @@ func NewGoGit(log logr.Logger, ociClient pkg.OCIClient) *Git {
 }
 
 func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) error {
-	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotURL, "url", opts.URL)
+	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotURL, "url", opts.URL, "sub-path", opts.SubPath)
 	// Get the snapshot from snapshotLocation
 	// move to this tmp folder or ( Fetch ) to this tmp folder once the git remote is initialised?
 	dir, err := os.MkdirTemp("", "clone")
@@ -83,6 +84,10 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) error {
 		return fmt.Errorf("failed to create a worktree: %w", err)
 	}
 
+	dir = filepath.Join(dir, opts.SubPath)
+	if err := os.MkdirAll(dir, 0777); err != nil {
+		return fmt.Errorf("failed to create subPath: %w", err)
+	}
 	// Pull will result in an untar-ed list of files.
 	if err := g.Client.Pull(ctx, opts.SnapshotURL, dir); err != nil {
 		return fmt.Errorf("failed to pull from OCI repository: %w", err)

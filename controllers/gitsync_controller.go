@@ -82,6 +82,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Email:       gitSync.Spec.CommitTemplate.Email,
 		SnapshotURL: snapshot.Spec.URL,
 		Branch:      gitSync.Spec.Branch,
+		SubPath:     gitSync.Spec.SubPath,
 	}
 	r.parseAuthSecret(authSecret, opts)
 

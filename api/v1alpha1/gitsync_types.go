@@ -45,6 +45,7 @@ type GitSyncSpec struct {
 	AuthRef        Ref             `json:"authRef"`
 	Destination    string          `json:"destination"`
 	CommitTemplate *CommitTemplate `json:"commitTemplate"`
+	SubPath        string          `json:"subPath"`
 }
 
 // GitSyncStatus defines the observed state of GitSync

@@ -93,6 +93,8 @@ spec:
                 - name
                 - namespace
                 type: object
+              subPath:
+                type: string
               url:
                 type: string
             required:
@@ -103,6 +105,7 @@ spec:
             - destination
             - interval
             - snapshotRef
+            - subPath
             - url
             type: object
           status:
