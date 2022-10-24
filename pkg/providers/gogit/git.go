@@ -19,14 +19,14 @@ import (
 )
 
 type Git struct {
-	Logger logr.Logger
-	Client pkg.OCIClient
+	Logger    logr.Logger
+	OciClient pkg.OCIClient
 }
 
 func NewGoGit(log logr.Logger, ociClient pkg.OCIClient) *Git {
 	return &Git{
-		Logger: log,
-		Client: ociClient,
+		Logger:    log,
+		OciClient: ociClient,
 	}
 }
 
@@ -78,7 +78,8 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	}
 
 	//Pull will result in an untar-ed list of files.
-	digest, err := g.Client.Pull(ctx, opts.SnapshotURL, dir)
+
+	digest, err := g.OciClient.Pull(ctx, opts.SnapshotURL, dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to pull from OCI repository: %w", err)
 	}

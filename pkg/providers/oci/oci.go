@@ -9,19 +9,17 @@ import (
 )
 
 type Client struct {
-	url    string
 	client *client.Client
 }
 
 // NewClient creates a new OCI client with target URL and user agent.
-func NewClient(url, agent string) *Client {
+func NewClient(agent string) *Client {
 	options := []crane.Option{
 		crane.WithUserAgent(agent),
 	}
 	client := client.NewClient(options)
 
 	return &Client{
-		url:    url,
 		client: client,
 	}
 }

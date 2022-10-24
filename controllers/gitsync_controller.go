@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,8 @@ type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Git providers.Git
+	Git               providers.Git
+	OciRepositoryAddr string
 }
 
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
@@ -81,12 +83,17 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}, authSecret); err != nil {
 		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to find authentication secret: %w", err)
 	}
+
+	// trim any trailing `/` and then just add.
+	trimmedBase := strings.TrimSuffix(r.OciRepositoryAddr, "/")
+	artifactURL := fmt.Sprintf("%s/%s", trimmedBase, snapshot.Spec.URL)
+	log.V(4).Info("crafting artifact URL to download from", "url", artifactURL)
 	opts := &providers.PushOptions{
 		URL:         gitSync.Spec.URL,
 		Message:     gitSync.Spec.CommitTemplate.Message,
 		Name:        gitSync.Spec.CommitTemplate.Name,
 		Email:       gitSync.Spec.CommitTemplate.Email,
-		SnapshotURL: snapshot.Spec.URL,
+		SnapshotURL: artifactURL,
 		Branch:      gitSync.Spec.Branch,
 		SubPath:     gitSync.Spec.SubPath,
 	}

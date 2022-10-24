@@ -62,7 +62,7 @@ func main() {
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", ":5000", "The address to the OCI registry.")
+	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", "localhost:5000", "The address to the OCI registry.")
 	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -100,12 +100,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	ociClient := oci.NewClient(ociRegistryAddr, ociAgent)
+	ociClient := oci.NewClient(ociAgent)
 	gitClient := gogit.NewGoGit(ctrl.Log, ociClient)
 	if err = (&controllers.GitSyncReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Git:    gitClient,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Git:               gitClient,
+		OciRepositoryAddr: ociRegistryAddr,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
 		os.Exit(1)
