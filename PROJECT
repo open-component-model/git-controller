@@ -19,7 +19,7 @@ resources:
   controller: true
   domain: ocm.software
   group: delivery
-  kind: OCMSnapshot
+  kind: Snapshot
   path: github.com/open-component-model/git-sync-controller/api/v1alpha1
   version: v1alpha1
 version: "3"

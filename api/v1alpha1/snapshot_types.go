@@ -20,36 +20,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// OCMSnapshotSpec defines the desired state of OCMSnapshot
-type OCMSnapshotSpec struct {
+// SnapshotSpec defines the desired state of Snapshot
+type SnapshotSpec struct {
 	URL string `json:"url"`
 }
 
-// OCMSnapshotStatus defines the observed state of OCMSnapshot
-type OCMSnapshotStatus struct {
+// SnapshotStatus defines the observed state of Snapshot
+type SnapshotStatus struct {
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// OCMSnapshot is the Schema for the ocmsnapshots API
-type OCMSnapshot struct {
+// Snapshot is the Schema for the snapshots API
+type Snapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   OCMSnapshotSpec   `json:"spec,omitempty"`
-	Status OCMSnapshotStatus `json:"status,omitempty"`
+	Spec   SnapshotSpec   `json:"spec,omitempty"`
+	Status SnapshotStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// OCMSnapshotList contains a list of OCMSnapshot
-type OCMSnapshotList struct {
+// SnapshotList contains a list of Snapshot
+type SnapshotList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []OCMSnapshot `json:"items"`
+	Items           []Snapshot `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&OCMSnapshot{}, &OCMSnapshotList{})
+	SchemeBuilder.Register(&Snapshot{}, &SnapshotList{})
 }

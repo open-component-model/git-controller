@@ -69,7 +69,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	snapshot := &v1alpha1.OCMSnapshot{}
+	snapshot := &v1alpha1.Snapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: gitSync.Spec.SnapshotRef.Namespace,
 		Name:      gitSync.Spec.SnapshotRef.Name,
