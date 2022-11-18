@@ -8,7 +8,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
+
 	"github.com/open-component-model/git-sync-controller/api/v1alpha1"
 	providers "github.com/open-component-model/git-sync-controller/pkg"
 )
@@ -29,8 +30,7 @@ type GitSyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Git               providers.Git
-	OciRepositoryAddr string
+	Git providers.Git
 }
 
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
@@ -38,6 +38,8 @@ type GitSyncReconciler struct {
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=ocmresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=snapshots/status,verbs=get;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -58,7 +60,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	snapshot := &v1alpha1.Snapshot{}
+	snapshot := &ocmv1.Snapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: gitSync.Spec.SnapshotRef.Namespace,
 		Name:      gitSync.Spec.SnapshotRef.Name,
@@ -74,15 +76,13 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// trim any trailing `/` and then just add.
-	trimmedBase := strings.TrimSuffix(r.OciRepositoryAddr, "/")
-	artifactURL := fmt.Sprintf("%s/%s", trimmedBase, snapshot.Spec.URL)
-	log.V(4).Info("crafting artifact URL to download from", "url", artifactURL)
+	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.Image)
 	opts := &providers.PushOptions{
 		URL:         gitSync.Spec.URL,
 		Message:     gitSync.Spec.CommitTemplate.Message,
 		Name:        gitSync.Spec.CommitTemplate.Name,
 		Email:       gitSync.Spec.CommitTemplate.Email,
-		SnapshotURL: artifactURL,
+		SnapshotURL: snapshot.Status.Image,
 		Branch:      gitSync.Spec.Branch,
 		SubPath:     gitSync.Spec.SubPath,
 	}
