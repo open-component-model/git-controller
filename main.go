@@ -9,11 +9,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
-	"github.com/open-component-model/git-sync-controller/pkg/providers/oci"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +20,8 @@ import (
 
 	deliveryv1alpha1 "github.com/open-component-model/git-sync-controller/api/v1alpha1"
 	"github.com/open-component-model/git-sync-controller/controllers"
+	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
+	"github.com/open-component-model/git-sync-controller/pkg/providers/oci"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -47,11 +44,9 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		storagePath          string
-		ociRegistryAddr      string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", "localhost:5000", "The address to the OCI registry.")
 	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -92,10 +87,9 @@ func main() {
 	ociClient := oci.NewClient(ociAgent)
 	gitClient := gogit.NewGoGit(ctrl.Log, ociClient)
 	if err = (&controllers.GitSyncReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		Git:               gitClient,
-		OciRepositoryAddr: ociRegistryAddr,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Git:    gitClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
 		os.Exit(1)
