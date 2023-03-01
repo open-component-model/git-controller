@@ -1,12 +1,23 @@
 apiVersion: delivery.ocm.software/v1alpha1
 kind: GitSync
 metadata:
-  labels:
-    app.kubernetes.io/name: gitsync
-    app.kubernetes.io/instance: gitsync-sample
-    app.kubernetes.io/part-of: git-sync-controller
-    app.kuberentes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: git-sync-controller
-  name: gitsync-sample
+  name: git-sync-sample
+  namespace: ocm-system
 spec:
-  # TODO(user): Add fields here
+  authRef:
+    name: git-sync-secret
+    namespace: ocm-system
+  branch: main
+  commitTemplate:
+    email: <email>
+    message: "Update made from git-sync-controller"
+    name: Gergely Brautigam
+  interval: 10m0s
+  subPath: ./application/podinfo
+  url: https://github.com/Skarlso/test
+  componentRef:
+    name: ocm-test-component
+    namespace: ocm-system
+  snapshotRef:
+    name: ocm-test-snapshot
+    namespace: ocm-system

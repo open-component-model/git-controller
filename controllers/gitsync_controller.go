@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -65,32 +65,32 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Namespace: gitSync.Spec.SnapshotRef.Namespace,
 		Name:      gitSync.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
-		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to find snapshot: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to find snapshot: %w", err)
 	}
 	authSecret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: gitSync.Spec.AuthRef.Namespace,
 		Name:      gitSync.Spec.AuthRef.Name,
 	}, authSecret); err != nil {
-		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to find authentication secret: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to find authentication secret: %w", err)
 	}
 
 	// trim any trailing `/` and then just add.
-	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.Image)
+	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
 	opts := &providers.PushOptions{
-		URL:         gitSync.Spec.URL,
-		Message:     gitSync.Spec.CommitTemplate.Message,
-		Name:        gitSync.Spec.CommitTemplate.Name,
-		Email:       gitSync.Spec.CommitTemplate.Email,
-		SnapshotURL: snapshot.Status.Image,
-		Branch:      gitSync.Spec.Branch,
-		SubPath:     gitSync.Spec.SubPath,
+		URL:      gitSync.Spec.URL,
+		Message:  gitSync.Spec.CommitTemplate.Message,
+		Name:     gitSync.Spec.CommitTemplate.Name,
+		Email:    gitSync.Spec.CommitTemplate.Email,
+		Snapshot: snapshot,
+		Branch:   gitSync.Spec.Branch,
+		SubPath:  gitSync.Spec.SubPath,
 	}
 	r.parseAuthSecret(authSecret, opts)
 
 	digest, err := r.Git.Push(ctx, opts)
 	if err != nil {
-		return requeue(gitSync.Spec.Interval), fmt.Errorf("failed to push to git repository: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to push to git repository: %w", err)
 	}
 	// Initialize the patch helper.
 	patchHelper, err := patch.NewHelper(gitSync, r.Client)
@@ -109,12 +109,6 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.V(4).Info("patch successful")
 
 	return ctrl.Result{}, nil
-}
-
-func requeue(seconds time.Duration) ctrl.Result {
-	return ctrl.Result{
-		RequeueAfter: seconds * time.Second,
-	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

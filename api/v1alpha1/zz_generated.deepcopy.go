@@ -104,6 +104,7 @@ func (in *GitSyncSpec) DeepCopyInto(out *GitSyncSpec) {
 	*out = *in
 	out.ComponentRef = in.ComponentRef
 	out.SnapshotRef = in.SnapshotRef
+	out.Interval = in.Interval
 	out.AuthRef = in.AuthRef
 	if in.CommitTemplate != nil {
 		in, out := &in.CommitTemplate, &out.CommitTemplate

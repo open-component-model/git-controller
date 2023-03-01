@@ -9,6 +9,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/open-component-model/ocm-controller/pkg/oci"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +22,6 @@ import (
 	deliveryv1alpha1 "github.com/open-component-model/git-sync-controller/api/v1alpha1"
 	"github.com/open-component-model/git-sync-controller/controllers"
 	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
-	"github.com/open-component-model/git-sync-controller/pkg/providers/oci"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -44,10 +44,12 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		storagePath          string
+		ociRegistryAddr      string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
+	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", ":5000", "The address of the OCI registry.")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -84,8 +86,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ociClient := oci.NewClient(ociAgent)
-	gitClient := gogit.NewGoGit(ctrl.Log, ociClient)
+	cache := oci.NewClient(ociRegistryAddr)
+	gitClient := gogit.NewGoGit(ctrl.Log, cache)
+
 	if err = (&controllers.GitSyncReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
