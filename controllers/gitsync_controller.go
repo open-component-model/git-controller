@@ -37,7 +37,7 @@ type GitSyncReconciler struct {
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=ocmresources,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=snapshots/status,verbs=get;update;patch
 
