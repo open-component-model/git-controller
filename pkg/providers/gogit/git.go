@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/fluxcd/pkg/tar"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -18,24 +19,27 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-logr/logr"
+	"github.com/open-component-model/ocm-controller/pkg/ocm"
+
+	"github.com/open-component-model/ocm-controller/pkg/cache"
 
 	"github.com/open-component-model/git-sync-controller/pkg"
 )
 
 type Git struct {
-	Logger    logr.Logger
-	OciClient pkg.OCIClient
+	Logger   logr.Logger
+	OciCache cache.Cache
 }
 
-func NewGoGit(log logr.Logger, ociClient pkg.OCIClient) *Git {
+func NewGoGit(log logr.Logger, cache cache.Cache) *Git {
 	return &Git{
-		Logger:    log,
-		OciClient: ociClient,
+		Logger:   log,
+		OciCache: cache,
 	}
 }
 
 func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
-	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.SnapshotURL, "url", opts.URL, "sub-path", opts.SubPath)
+	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.Snapshot.Name, "url", opts.URL, "sub-path", opts.SubPath)
 
 	dir, err := os.MkdirTemp("", "clone")
 	if err != nil {
@@ -81,11 +85,18 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 		return "", fmt.Errorf("failed to create subPath: %w", err)
 	}
 
-	//Pull will result in an untar-ed list of files.
-
-	digest, err := g.OciClient.Pull(ctx, opts.SnapshotURL, dir)
+	name, err := ocm.ConstructRepositoryName(opts.Snapshot.Spec.Identity)
 	if err != nil {
-		return "", fmt.Errorf("failed to pull from OCI repository: %w", err)
+		return "", fmt.Errorf("failed to construct name: %w", err)
+	}
+
+	blob, err := g.OciCache.FetchDataByDigest(ctx, name, opts.Snapshot.Spec.Digest)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch blob for digest: %w", err)
+	}
+
+	if err = tar.Untar(blob, dir, tar.WithMaxUntarSize(-1)); err != nil {
+		return "", fmt.Errorf("failed to untar first layer: %w", err)
 	}
 
 	// Add all extracted files.
@@ -112,5 +123,5 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	if err := r.Push(pushOptions); err != nil {
 		return "", fmt.Errorf("failed to push new snapshot: %w", err)
 	}
-	return digest, nil
+	return opts.Snapshot.Spec.Digest, nil
 }

@@ -6,8 +6,6 @@
 package v1alpha1
 
 import (
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,7 +26,7 @@ type CommitTemplate struct {
 type GitSyncSpec struct {
 	ComponentRef   Ref             `json:"componentRef"`
 	SnapshotRef    Ref             `json:"snapshotRef"`
-	Interval       time.Duration   `json:"interval"`
+	Interval       metav1.Duration `json:"interval"`
 	URL            string          `json:"url"`
 	Branch         string          `json:"branch"`
 	AuthRef        Ref             `json:"authRef"`

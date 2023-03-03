@@ -4,7 +4,11 @@
 
 package pkg
 
-import "context"
+import (
+	"context"
+
+	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
+)
 
 // BasicAuth provides information for basic authentication. The expected format is Username as username and
 // Password is usually a token.
@@ -28,15 +32,15 @@ type Auth struct {
 
 // PushOptions contains settings for a push action.
 type PushOptions struct {
-	Auth        *Auth
-	URL         string
-	Message     string
-	Name        string
-	Email       string
-	SnapshotURL string
-	Branch      string
-	SubPath     string
-	Prune       bool
+	Auth     *Auth
+	URL      string
+	Message  string
+	Name     string
+	Email    string
+	Snapshot *ocmv1.Snapshot
+	Branch   string
+	SubPath  string
+	Prune    bool
 }
 
 // Git defines an interface to abstract git operations.
