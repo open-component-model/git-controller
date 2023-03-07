@@ -19,9 +19,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-logr/logr"
-	"github.com/open-component-model/ocm-controller/pkg/ocm"
 
 	"github.com/open-component-model/ocm-controller/pkg/cache"
+	"github.com/open-component-model/ocm-controller/pkg/ocm"
 
 	"github.com/open-component-model/git-sync-controller/pkg"
 )
