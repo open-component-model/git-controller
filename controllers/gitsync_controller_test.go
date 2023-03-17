@@ -18,7 +18,6 @@ import (
 )
 
 func TestGitSyncReconciler(t *testing.T) {
-	cv := DefaultComponent.DeepCopy()
 	snapshot := DefaultSnapshot.DeepCopy()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,10 +35,6 @@ func TestGitSyncReconciler(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.GitSyncSpec{
-			ComponentRef: v1alpha1.Ref{
-				Name:      cv.Name,
-				Namespace: cv.Namespace,
-			},
 			SnapshotRef: v1alpha1.Ref{
 				Name:      snapshot.Name,
 				Namespace: snapshot.Namespace,
@@ -60,7 +55,7 @@ func TestGitSyncReconciler(t *testing.T) {
 		},
 	}
 
-	client := env.FakeKubeClient(WithObjets(gitSync, snapshot, cv, secret), WithAddToScheme(ocmv1.AddToScheme))
+	client := env.FakeKubeClient(WithObjets(gitSync, snapshot, secret), WithAddToScheme(ocmv1.AddToScheme))
 	m := &mockGit{
 		digest: "test-digest",
 	}

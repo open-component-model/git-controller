@@ -24,7 +24,6 @@ type CommitTemplate struct {
 
 // GitSyncSpec defines the desired state of GitSync
 type GitSyncSpec struct {
-	ComponentRef   Ref             `json:"componentRef"`
 	SnapshotRef    Ref             `json:"snapshotRef"`
 	Interval       metav1.Duration `json:"interval"`
 	URL            string          `json:"url"`

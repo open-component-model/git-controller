@@ -63,17 +63,6 @@ spec:
                 - message
                 - name
                 type: object
-              componentRef:
-                description: Ref defines a name and namespace ref to any object.
-                properties:
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                required:
-                - name
-                - namespace
-                type: object
               interval:
                 type: string
               prune:
@@ -97,7 +86,6 @@ spec:
             - authRef
             - branch
             - commitTemplate
-            - componentRef
             - interval
             - snapshotRef
             - subPath
