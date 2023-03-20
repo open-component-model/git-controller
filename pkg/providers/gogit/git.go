@@ -5,7 +5,9 @@
 package gogit
 
 import (
+	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -95,7 +97,9 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 		return "", fmt.Errorf("failed to fetch blob for digest: %w", err)
 	}
 
-	if err = tar.Untar(blob, dir, tar.WithMaxUntarSize(-1)); err != nil {
+	// we only care about the error if it is NOT a header error. Otherwise, we assume the content
+	// wasn't compressed.
+	if err = tar.Untar(blob, dir, tar.WithMaxUntarSize(-1)); err != nil && !errors.Is(err, gzip.ErrHeader) {
 		return "", fmt.Errorf("failed to untar first layer: %w", err)
 	}
 

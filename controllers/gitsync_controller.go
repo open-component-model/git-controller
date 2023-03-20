@@ -7,12 +7,15 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"time"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,71 +47,139 @@ type GitSyncReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var (
+		result ctrl.Result
+		retErr error
+	)
+
 	log := log.FromContext(ctx)
 	log.V(4).Info("starting reconcile loop for snapshot")
-	gitSync := &v1alpha1.GitSync{}
-	if err := r.Get(ctx, req.NamespacedName, gitSync); err != nil {
+	obj := &v1alpha1.GitSync{}
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get git sync object: %w", err)
 	}
-	log.V(4).Info("found reconciling object", "gitSync", gitSync)
+	log.V(4).Info("found reconciling object", "gitSync", obj)
 
-	if gitSync.Status.Digest != "" {
-		log.Info("GitSync object already synced; status contains digest information", "digest", gitSync.Status.Digest)
+	// The replication controller doesn't need a shouldReconcile, because it should always reconcile,
+	// that is its purpose.
+	patchHelper, err := patch.NewHelper(obj, r.Client)
+	if err != nil {
+		retErr = errors.Join(retErr, err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.PatchFailedReason, err.Error())
+
+		return ctrl.Result{}, retErr
+	}
+
+	// Always attempt to patch the object and status after each reconciliation.
+	defer func() {
+		// Patching has not been set up, or the controller errored earlier.
+		if patchHelper == nil {
+			return
+		}
+
+		if condition := conditions.Get(obj, meta.StalledCondition); condition != nil && condition.Status == metav1.ConditionTrue {
+			conditions.Delete(obj, meta.ReconcilingCondition)
+		}
+
+		// Check if it's a successful reconciliation.
+		// We don't set Requeue in case of error, so we can safely check for Requeue.
+		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && retErr == nil {
+			// Remove the reconciling condition if it's set.
+			conditions.Delete(obj, meta.ReconcilingCondition)
+
+			// Set the return err as the ready failure message if the resource is not ready, but also not reconciling or stalled.
+			if ready := conditions.Get(obj, meta.ReadyCondition); ready != nil && ready.Status == metav1.ConditionFalse && !conditions.IsStalled(obj) {
+				retErr = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
+			}
+		}
+
+		// If still reconciling then reconciliation did not succeed, set to ProgressingWithRetry to
+		// indicate that reconciliation will be retried.
+		if conditions.IsReconciling(obj) {
+			reconciling := conditions.Get(obj, meta.ReconcilingCondition)
+			reconciling.Reason = meta.ProgressingWithRetryReason
+			conditions.Set(obj, reconciling)
+		}
+
+		// If not reconciling or stalled than mark Ready=True
+		if !conditions.IsReconciling(obj) &&
+			!conditions.IsStalled(obj) &&
+			retErr == nil {
+			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+		}
+
+		// Set status observed generation option if the component is stalled or ready.
+		if conditions.IsStalled(obj) || conditions.IsReady(obj) {
+			obj.Status.ObservedGeneration = obj.Generation
+		}
+
+		// Update the object.
+		if err := patchHelper.Patch(ctx, obj); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+	}()
+
+	// it's important that this happens here so any residual status condition can be overwritten / set.
+	if obj.Status.Digest != "" {
+		log.Info("GitSync object already synced; status contains digest information", "digest", obj.Status.Digest)
 		return ctrl.Result{}, nil
 	}
 
 	snapshot := &ocmv1.Snapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: gitSync.Spec.SnapshotRef.Namespace,
-		Name:      gitSync.Spec.SnapshotRef.Name,
+		Namespace: obj.Spec.SnapshotRef.Namespace,
+		Name:      obj.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to find snapshot: %w", err)
+		retErr = fmt.Errorf("failed to find snapshot: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.SnapshotGetFailedReason, retErr.Error())
+
+		return ctrl.Result{}, retErr
 	}
+
 	authSecret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: gitSync.Spec.AuthRef.Namespace,
-		Name:      gitSync.Spec.AuthRef.Name,
+		Namespace: obj.Spec.AuthRef.Namespace,
+		Name:      obj.Spec.AuthRef.Name,
 	}, authSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to find authentication secret: %w", err)
+		retErr = fmt.Errorf("failed to find authentication secret: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.AuthenticateGetFailedReason, retErr.Error())
+
+		return ctrl.Result{}, retErr
 	}
 
 	// trim any trailing `/` and then just add.
 	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
 	opts := &providers.PushOptions{
-		URL:      gitSync.Spec.URL,
-		Message:  gitSync.Spec.CommitTemplate.Message,
-		Name:     gitSync.Spec.CommitTemplate.Name,
-		Email:    gitSync.Spec.CommitTemplate.Email,
+		URL:      obj.Spec.URL,
+		Message:  obj.Spec.CommitTemplate.Message,
+		Name:     obj.Spec.CommitTemplate.Name,
+		Email:    obj.Spec.CommitTemplate.Email,
 		Snapshot: snapshot,
-		Branch:   gitSync.Spec.Branch,
-		SubPath:  gitSync.Spec.SubPath,
+		Branch:   obj.Spec.Branch,
+		SubPath:  obj.Spec.SubPath,
 	}
+
 	r.parseAuthSecret(authSecret, opts)
 
 	digest, err := r.Git.Push(ctx, opts)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to push to git repository: %w", err)
-	}
-	// Initialize the patch helper.
-	patchHelper, err := patch.NewHelper(gitSync, r.Client)
-	if err != nil {
-		return ctrl.Result{
-			RequeueAfter: 1 * time.Minute,
-		}, fmt.Errorf("failed to create patch helper: %w", err)
+		retErr = fmt.Errorf("failed to push to git repository: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, retErr.Error())
+
+		return ctrl.Result{}, retErr
 	}
 
-	gitSync.Status.Digest = digest
-	if err := patchHelper.Patch(ctx, gitSync); err != nil {
-		return ctrl.Result{
-			RequeueAfter: 1 * time.Minute,
-		}, fmt.Errorf("failed to patch git sync object: %w", err)
-	}
-	log.V(4).Info("patch successful")
+	obj.Status.Digest = digest
 
-	return ctrl.Result{}, nil
+	// Remove any stale Ready condition, most likely False, set above. Its value
+	// is derived from the overall result of the reconciliation in the deferred
+	// block at the very end.
+	conditions.Delete(obj, meta.ReadyCondition)
+
+	return result, retErr
 }
 
 // SetupWithManager sets up the controller with the Manager.
