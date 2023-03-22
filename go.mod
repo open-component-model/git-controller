@@ -6,7 +6,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/fluxcd/pkg/apis/meta v0.19.0
 	github.com/fluxcd/pkg/runtime v0.27.0
-	github.com/fluxcd/pkg/tar v0.2.0
 	github.com/go-git/go-git/v5 v5.6.0
 	github.com/go-logr/logr v1.2.3
 	github.com/open-component-model/ocm-controller v0.4.0
@@ -51,7 +50,6 @@ require (
 	github.com/containers/libtrust v0.0.0-20200511145503-9c3a6c22cd9a // indirect
 	github.com/containers/ocicrypt v1.1.5 // indirect
 	github.com/containers/storage v1.42.0 // indirect
-	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/distribution/v3 v3.0.0-20230214150026-36d8c594d7aa // indirect
 	github.com/docker/cli v23.0.1+incompatible // indirect
