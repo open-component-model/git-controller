@@ -145,7 +145,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Name:      obj.Spec.AuthRef.Name,
 	}, authSecret); err != nil {
 		retErr = fmt.Errorf("failed to find authentication secret: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.AuthenticateGetFailedReason, retErr.Error())
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CredentialsNotFoundReason, retErr.Error())
 
 		return ctrl.Result{}, retErr
 	}

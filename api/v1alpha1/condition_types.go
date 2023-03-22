@@ -13,7 +13,7 @@ const (
 	SnapshotGetFailedReason = "SnapshotGetFailed"
 
 	// AuthenticateGetFailedReason is used when the needed authentication does not exist.
-	AuthenticateGetFailedReason = "AuthenticateGetFailed"
+	CredentialsNotFoundReason = "CredentialsNotFound"
 
 	// GitRepositoryPushFailedReason is used when the needed pushing to a git repository failed.
 	GitRepositoryPushFailedReason = "GitRepositoryPushFailed"
