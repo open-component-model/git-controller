@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -80,6 +82,7 @@ func TestGitSyncReconciler(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-digest", gitSync.Status.Digest)
+	assert.True(t, conditions.IsTrue(gitSync, meta.ReadyCondition))
 }
 
 type mockGit struct {
