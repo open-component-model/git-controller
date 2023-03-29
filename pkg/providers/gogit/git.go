@@ -5,15 +5,12 @@
 package gogit
 
 import (
-	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/fluxcd/pkg/tar"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -99,8 +96,8 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 
 	// we only care about the error if it is NOT a header error. Otherwise, we assume the content
 	// wasn't compressed.
-	if err = tar.Untar(blob, dir, tar.WithMaxUntarSize(-1)); err != nil && !errors.Is(err, gzip.ErrHeader) {
-		return "", fmt.Errorf("failed to untar first layer: %w", err)
+	if err = Untar(blob, dir); err != nil {
+		return "", fmt.Errorf("failed to untar content: %w", err)
 	}
 
 	// Add all extracted files.
