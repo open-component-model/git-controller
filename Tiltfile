@@ -13,7 +13,7 @@ install = kustomize('config/default')
 # running process.
 objects = decode_yaml_stream(install)
 for o in objects:
-    if o.get('kind') == 'Deployment' and o.get('metadata').get('name') == 'git-sync-controller':
+    if o.get('kind') == 'Deployment' and o.get('metadata').get('name') == 'git-controller':
         o['spec']['template']['spec']['securityContext']['runAsNonRoot'] = False
         break
 
@@ -33,7 +33,7 @@ load('ext://restart_process', 'docker_build_with_restart')
 # Once done, rebuilding now should be a lot faster since only the relevant
 # binary is rebuilt and the hot swat wrapper takes care of the rest.
 local_resource(
-    'git-sync-controller-binary',
+    'git-controller-binary',
     'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/manager ./',
     deps = [
         "main.go",
@@ -54,7 +54,7 @@ local_resource(
 entrypoint = ['/manager']
 dockerfile = 'tilt.dockerfile'
 docker_build_with_restart(
-    'ghcr.io/open-component-model/git-sync-controller',
+    'ghcr.io/open-component-model/git-controller',
     '.',
     dockerfile = dockerfile,
     entrypoint = entrypoint,

@@ -20,16 +20,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	deliveryv1alpha1 "github.com/open-component-model/git-sync-controller/api/v1alpha1"
-	"github.com/open-component-model/git-sync-controller/controllers"
-	"github.com/open-component-model/git-sync-controller/pkg/providers/gogit"
+	deliveryv1alpha1 "github.com/open-component-model/git-controller/api/v1alpha1"
+	"github.com/open-component-model/git-controller/controllers"
+	"github.com/open-component-model/git-controller/pkg/providers/gogit"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	ociAgent = "git-sync-controller/v1alpha1"
+	ociAgent = "git-controller/v1alpha1"
 )
 
 func init() {
@@ -90,12 +90,12 @@ func main() {
 	cache := oci.NewClient(ociRegistryAddr)
 	gitClient := gogit.NewGoGit(ctrl.Log, cache)
 
-	if err = (&controllers.GitSyncReconciler{
+	if err = (&controllers.SyncReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Git:    gitClient,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GitSync")
+		setupLog.Error(err, "unable to create controller", "controller", "Sync")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

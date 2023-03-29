@@ -1,4 +1,4 @@
-module github.com/open-component-model/git-sync-controller
+module github.com/open-component-model/git-controller
 
 go 1.20
 

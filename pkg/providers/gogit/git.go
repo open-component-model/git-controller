@@ -22,7 +22,7 @@ import (
 	"github.com/open-component-model/ocm-controller/pkg/cache"
 	"github.com/open-component-model/ocm-controller/pkg/ocm"
 
-	"github.com/open-component-model/git-sync-controller/pkg"
+	"github.com/open-component-model/git-controller/pkg"
 )
 
 type Git struct {
