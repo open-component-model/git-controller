@@ -2,27 +2,27 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    app: git-sync-controller
+    app: git-controller
   name: ocm-system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: git-sync-controller
+  name: git-controller
   namespace: ocm-system
   labels:
-    app: git-sync-controller
+    app: git-controller
 spec:
   selector:
     matchLabels:
-      app: git-sync-controller
+      app: git-controller
   replicas: 1
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        app: git-sync-controller
+        app: git-controller
     spec:
       securityContext:
         runAsNonRoot: true
@@ -32,7 +32,7 @@ spec:
         args:
         - --leader-elect
         - --oci-registry-addr=registry.ocm-system.svc.cluster.local:5000
-        image: open-component-model/git-sync-controller:latest
+        image: open-component-model/git-controller:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
@@ -58,5 +58,5 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-      serviceAccountName: git-sync-controller
+      serviceAccountName: git-controller
       terminationGracePeriodSeconds: 10

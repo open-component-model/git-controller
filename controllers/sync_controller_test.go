@@ -15,11 +15,11 @@ import (
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
-	"github.com/open-component-model/git-sync-controller/api/v1alpha1"
-	"github.com/open-component-model/git-sync-controller/pkg"
+	"github.com/open-component-model/git-controller/api/v1alpha1"
+	"github.com/open-component-model/git-controller/pkg"
 )
 
-func TestGitSyncReconciler(t *testing.T) {
+func TestSyncReconciler(t *testing.T) {
 	snapshot := DefaultSnapshot.DeepCopy()
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,12 +31,12 @@ func TestGitSyncReconciler(t *testing.T) {
 			"password": []byte("password"),
 		},
 	}
-	gitSync := &v1alpha1.GitSync{
+	sync := &v1alpha1.Sync{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "git-sync-test",
+			Name:      "git-test",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.GitSyncSpec{
+		Spec: v1alpha1.SyncSpec{
 			SnapshotRef: v1alpha1.Ref{
 				Name:      snapshot.Name,
 				Namespace: snapshot.Namespace,
@@ -57,11 +57,11 @@ func TestGitSyncReconciler(t *testing.T) {
 		},
 	}
 
-	client := env.FakeKubeClient(WithObjets(gitSync, snapshot, secret), WithAddToScheme(ocmv1.AddToScheme))
+	client := env.FakeKubeClient(WithObjets(sync, snapshot, secret), WithAddToScheme(ocmv1.AddToScheme))
 	m := &mockGit{
 		digest: "test-digest",
 	}
-	gsr := GitSyncReconciler{
+	gsr := SyncReconciler{
 		Client: client,
 		Scheme: env.scheme,
 		Git:    m,
@@ -69,20 +69,20 @@ func TestGitSyncReconciler(t *testing.T) {
 
 	_, err := gsr.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
-			Namespace: gitSync.Namespace,
-			Name:      gitSync.Name,
+			Namespace: sync.Namespace,
+			Name:      sync.Name,
 		},
 	})
 	require.NoError(t, err)
 
 	err = client.Get(context.Background(), types.NamespacedName{
-		Name:      gitSync.Name,
-		Namespace: gitSync.Namespace,
-	}, gitSync)
+		Name:      sync.Name,
+		Namespace: sync.Namespace,
+	}, sync)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-digest", gitSync.Status.Digest)
-	assert.True(t, conditions.IsTrue(gitSync, meta.ReadyCondition))
+	assert.Equal(t, "test-digest", sync.Status.Digest)
+	assert.True(t, conditions.IsTrue(sync, meta.ReadyCondition))
 }
 
 type mockGit struct {

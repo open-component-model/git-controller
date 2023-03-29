@@ -1,27 +1,31 @@
-# permissions for end users to view gitsyncs.
+# permissions for end users to edit syncs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: gitsync-viewer-role
+    app.kubernetes.io/instance: sync-editor-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: git-sync-controller
-    app.kubernetes.io/part-of: git-sync-controller
+    app.kubernetes.io/created-by: git-controller
+    app.kubernetes.io/part-of: git-controller
     app.kubernetes.io/managed-by: kustomize
-  name: gitsync-viewer-role
+  name: sync-editor-role
 rules:
 - apiGroups:
   - delivery.ocm.software
   resources:
-  - gitsyncs
+  - syncs
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - delivery.ocm.software
   resources:
-  - gitsyncs/status
+  - syncs/status
   verbs:
   - get

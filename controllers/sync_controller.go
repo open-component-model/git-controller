@@ -24,21 +24,21 @@ import (
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
-	"github.com/open-component-model/git-sync-controller/api/v1alpha1"
-	providers "github.com/open-component-model/git-sync-controller/pkg"
+	"github.com/open-component-model/git-controller/api/v1alpha1"
+	providers "github.com/open-component-model/git-controller/pkg"
 )
 
-// GitSyncReconciler reconciles a GitSync object
-type GitSyncReconciler struct {
+// SyncReconciler reconciles a Sync object
+type SyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
 	Git providers.Git
 }
 
-//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=delivery.ocm.software,resources=gitsyncs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=syncs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=syncs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=delivery.ocm.software,resources=syncs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=ocmresources,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=snapshots,verbs=get;list;watch;create;update;patch;delete
@@ -46,7 +46,7 @@ type GitSyncReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var (
 		result ctrl.Result
 		retErr error
@@ -54,14 +54,14 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	log := log.FromContext(ctx)
 	log.V(4).Info("starting reconcile loop for snapshot")
-	obj := &v1alpha1.GitSync{}
+	obj := &v1alpha1.Sync{}
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get git sync object: %w", err)
 	}
-	log.V(4).Info("found reconciling object", "gitSync", obj)
+	log.V(4).Info("found reconciling object", "sync", obj)
 
 	// The replication controller doesn't need a shouldReconcile, because it should always reconcile,
 	// that is its purpose.
@@ -124,7 +124,7 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// it's important that this happens here so any residual status condition can be overwritten / set.
 	if obj.Status.Digest != "" {
-		log.Info("GitSync object already synced; status contains digest information", "digest", obj.Status.Digest)
+		log.Info("Sync object already synced; status contains digest information", "digest", obj.Status.Digest)
 		return ctrl.Result{}, nil
 	}
 
@@ -183,13 +183,13 @@ func (r *GitSyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *GitSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.GitSync{}).
+		For(&v1alpha1.Sync{}).
 		Complete(r)
 }
 
-func (r *GitSyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *providers.PushOptions) {
+func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *providers.PushOptions) {
 	if _, ok := secret.Data["identity"]; ok {
 		opts.Auth = &providers.Auth{
 			SSH: &providers.SSH{

@@ -24,8 +24,8 @@ type CommitTemplate struct {
 	Message string `json:"message"`
 }
 
-// GitSyncSpec defines the desired state of GitSync
-type GitSyncSpec struct {
+// SyncSpec defines the desired state of Sync
+type SyncSpec struct {
 	SnapshotRef    Ref             `json:"snapshotRef"`
 	Interval       metav1.Duration `json:"interval"`
 	URL            string          `json:"url"`
@@ -36,8 +36,8 @@ type GitSyncSpec struct {
 	Prune          bool            `json:"prune,omitempty"`
 }
 
-// GitSyncStatus defines the observed state of GitSync
-type GitSyncStatus struct {
+// SyncStatus defines the observed state of Sync
+type SyncStatus struct {
 	Digest string `json:"digest,omitempty"`
 
 	// ObservedGeneration is the last reconciled generation.
@@ -50,42 +50,42 @@ type GitSyncStatus struct {
 }
 
 // GetConditions returns the conditions of the ComponentVersion.
-func (in *GitSync) GetConditions() []metav1.Condition {
+func (in *Sync) GetConditions() []metav1.Condition {
 	return in.Status.Conditions
 }
 
 // SetConditions sets the conditions of the ComponentVersion.
-func (in *GitSync) SetConditions(conditions []metav1.Condition) {
+func (in *Sync) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
 }
 
 // GetRequeueAfter returns the duration after which the ComponentVersion must be
 // reconciled again.
-func (in GitSync) GetRequeueAfter() time.Duration {
+func (in Sync) GetRequeueAfter() time.Duration {
 	return in.Spec.Interval.Duration
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// GitSync is the Schema for the gitsyncs API
-type GitSync struct {
+// Sync is the Schema for the syncs API
+type Sync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   GitSyncSpec   `json:"spec,omitempty"`
-	Status GitSyncStatus `json:"status,omitempty"`
+	Spec   SyncSpec   `json:"spec,omitempty"`
+	Status SyncStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// GitSyncList contains a list of GitSync
-type GitSyncList struct {
+// SyncList contains a list of Sync
+type SyncList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []GitSync `json:"items"`
+	Items           []Sync `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&GitSync{}, &GitSyncList{})
+	SchemeBuilder.Register(&Sync{}, &SyncList{})
 }

@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: git-sync-controller-manager-rolebinding
+  name: git-controller-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: git-sync-controller-manager-role
+  name: git-controller-manager-role
 subjects:
 - kind: ServiceAccount
-  name: git-sync-controller
+  name: git-controller
   namespace: ocm-system

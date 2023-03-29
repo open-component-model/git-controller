@@ -1,8 +1,8 @@
 domain: ocm.software
 layout:
 - go.kubebuilder.io/v3
-projectName: git-sync-controller
-repo: github.com/open-component-model/git-sync-controller
+projectName: git-controller
+repo: github.com/open-component-model/git-controller
 resources:
 - api:
     crdVersion: v1
@@ -10,7 +10,7 @@ resources:
   controller: true
   domain: ocm.software
   group: delivery
-  kind: GitSync
-  path: github.com/open-component-model/git-sync-controller/api/v1alpha1
+  kind: Sync
+  path: github.com/open-component-model/git-controller/api/v1alpha1
   version: v1alpha1
 version: "3"

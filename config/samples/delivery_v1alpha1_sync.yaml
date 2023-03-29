@@ -1,16 +1,16 @@
 apiVersion: delivery.ocm.software/v1alpha1
-kind: GitSync
+kind: Sync
 metadata:
-  name: git-sync-sample
+  name: git-sample
   namespace: ocm-system
 spec:
   authRef:
-    name: git-sync-secret
+    name: git-secret
     namespace: ocm-system
   branch: main
   commitTemplate:
     email: <email>
-    message: "Update made from git-sync-controller"
+    message: "Update made from git-controller"
     name: Gergely Brautigam
   interval: 10m0s
   subPath: ./application/podinfo

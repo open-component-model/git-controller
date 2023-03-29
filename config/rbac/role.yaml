@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: git-sync-controller-manager-role
+  name: git-controller-manager-role
 rules:
 - apiGroups:
   - ""
@@ -13,32 +13,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - delivery.ocm.software
-  resources:
-  - gitsyncs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - delivery.ocm.software
-  resources:
-  - gitsyncs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - delivery.ocm.software
-  resources:
-  - gitsyncs/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - delivery.ocm.software
   resources:
@@ -67,6 +41,32 @@ rules:
   - delivery.ocm.software
   resources:
   - snapshots/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - syncs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - syncs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - syncs/status
   verbs:
   - get
   - patch
