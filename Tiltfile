@@ -39,7 +39,7 @@ local_resource(
         "main.go",
         "go.mod",
         "go.sum",
-        "api",
+        "apis",
         "controllers",
         "pkg",
     ],
