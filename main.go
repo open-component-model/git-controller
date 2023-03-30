@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-component-model/git-controller/pkg/gogit"
 	"github.com/open-component-model/git-controller/pkg/providers/github"
+	"github.com/open-component-model/git-controller/pkg/providers/gitlab"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -101,7 +102,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	githubProvider := github.NewClient(mgr.GetClient(), nil)
+	gitlabProvider := gitlab.NewClient(mgr.GetClient(), nil)
+	githubProvider := github.NewClient(mgr.GetClient(), gitlabProvider)
 	if err = (&mpascontrollers.RepositoryReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),

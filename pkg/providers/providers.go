@@ -8,6 +8,6 @@ import (
 
 // Provider adds the ability to create repositories and pull requests.
 type Provider interface {
-	CreateRepository(ctx context.Context, spec mpasv1alpha1.Repository) error
+	CreateRepository(ctx context.Context, obj mpasv1alpha1.Repository) error
 	CreatePullRequest(ctx context.Context, owner, repo, title, branch, description string) error
 }
