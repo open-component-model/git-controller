@@ -22,16 +22,24 @@ type Credentials struct {
 
 // RepositorySpec defines the desired state of Repository
 type RepositorySpec struct {
-	Provider    string          `json:"provider"`
-	Owner       string          `json:"owner"`
-	Repository  string          `json:"repository"`
-	Credentials Credentials     `json:"credentials"`
-	Interval    metav1.Duration `json:"interval"`
+	Provider       string      `json:"provider"`
+	Owner          string      `json:"owner"`
+	RepositoryName string      `json:"repositoryName"`
+	Credentials    Credentials `json:"credentials"`
 
+	//+optional
+	Interval metav1.Duration `json:"interval,omitempty"`
+	//+optional
+	//+kubebuilder:default:=internal
+	Visibility string `json:"visibility,omitempty"`
+	//+kubebuilder:default:=true
+	IsOrganization bool `json:"isOrganization,omitempty"`
+	//+optional
+	Domain string `json:"domain,omitempty"`
 	//+optional
 	Maintainers []string `json:"maintainers,omitempty"`
 	//+optional
-	//+kubebuilder:default=true;
+	//+kubebuilder:default:=true
 	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
 }
 

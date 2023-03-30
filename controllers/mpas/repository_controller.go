@@ -16,16 +16,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
+	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
 // RepositoryReconciler reconciles a Repository object
 type RepositoryReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Provider providers.Provider
 }
 
 //+kubebuilder:rbac:groups=mpas.ocm.software,resources=repositories,verbs=get;list;watch;create;update;patch;delete
@@ -41,7 +45,6 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	)
 
 	logger := log.FromContext(ctx).WithName("repository")
-
 	logger.V(4).Info("entering repository loop...")
 
 	obj := &mpasv1alpha1.Repository{}
@@ -94,10 +97,10 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		// If not reconciling or stalled than mark Ready=True
 		if !conditions.IsReconciling(obj) &&
 			!conditions.IsStalled(obj) &&
-			retErr == nil &&
-			result.RequeueAfter == obj.GetRequeueAfter() {
+			retErr == nil {
 			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
 		}
+
 		// Set status observed generation option if the component is stalled or ready.
 		if conditions.IsStalled(obj) || conditions.IsReady(obj) {
 			obj.Status.ObservedGeneration = obj.Generation
@@ -109,6 +112,11 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}()
 
+	// Remove any stale Ready condition, most likely False, set above. Its value
+	// is derived from the overall result of the reconciliation in the deferred
+	// block at the very end.
+	conditions.Delete(obj, meta.ReadyCondition)
+
 	result, retErr = r.reconcile(ctx, obj)
 	return result, retErr
 }
@@ -116,10 +124,15 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&mpasv1alpha1.Repository{}).
+		For(&mpasv1alpha1.Repository{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
 func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) (ctrl.Result, error) {
+	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
+		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
+		return ctrl.Result{}, fmt.Errorf("failed to create repository: %w", err)
+	}
+
 	return ctrl.Result{}, nil
 }

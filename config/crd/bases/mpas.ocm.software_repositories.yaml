@@ -36,8 +36,7 @@ spec:
             description: RepositorySpec defines the desired state of Repository
             properties:
               automaticPullRequestCreation:
-                default:
-                - true
+                default: true
                 type: boolean
               credentials:
                 description: Credentials contains ways of authenticating the creation
@@ -55,8 +54,13 @@ spec:
                 required:
                 - secretRef
                 type: object
+              domain:
+                type: string
               interval:
                 type: string
+              isOrganization:
+                default: true
+                type: boolean
               maintainers:
                 items:
                   type: string
@@ -65,14 +69,16 @@ spec:
                 type: string
               provider:
                 type: string
-              repository:
+              repositoryName:
+                type: string
+              visibility:
+                default: internal
                 type: string
             required:
             - credentials
-            - interval
             - owner
             - provider
-            - repository
+            - repositoryName
             type: object
           status:
             description: RepositoryStatus defines the observed state of Repository

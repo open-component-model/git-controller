@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/open-component-model/git-controller/pkg/gogit"
+	"github.com/open-component-model/git-controller/pkg/providers/github"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -30,7 +31,6 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	ociAgent = "git-controller/v1alpha1"
 )
 
 func init() {
@@ -100,9 +100,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Sync")
 		os.Exit(1)
 	}
+
+	githubProvider := github.NewClient(mgr.GetClient(), nil)
 	if err = (&mpascontrollers.RepositoryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Provider: githubProvider,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Repository")
 		os.Exit(1)
