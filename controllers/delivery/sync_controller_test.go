@@ -15,7 +15,7 @@ import (
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
-	"github.com/open-component-model/git-controller/api/v1alpha1"
+	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg"
 )
 

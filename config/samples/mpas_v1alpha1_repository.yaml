@@ -1,0 +1,12 @@
+apiVersion: mpas.ocm.software/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    app.kubernetes.io/name: repository
+    app.kubernetes.io/instance: repository-sample
+    app.kubernetes.io/part-of: git-controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: git-controller
+  name: repository-sample
+spec:
+  # TODO(user): Add fields here
