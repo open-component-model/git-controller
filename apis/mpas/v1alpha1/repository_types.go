@@ -20,17 +20,31 @@ type Credentials struct {
 	SecretRef SecretRef `json:"secretRef"`
 }
 
+// ExistingRepositoryPolicy defines what to do in case a requested repository already exists.
+type ExistingRepositoryPolicy string
+
+var (
+	// ExistingRepositoryPolicyAdopt will use the repository if it exists.
+	ExistingRepositoryPolicyAdopt ExistingRepositoryPolicy = "adopt"
+	// ExistingRepositoryPolicyFail will fail if the requested repository already exists.
+	ExistingRepositoryPolicyFail ExistingRepositoryPolicy = "fail"
+)
+
 // RepositorySpec defines the desired state of Repository
 type RepositorySpec struct {
-	Provider       string      `json:"provider"`
-	Owner          string      `json:"owner"`
-	RepositoryName string      `json:"repositoryName"`
-	Credentials    Credentials `json:"credentials"`
+	//+required
+	Provider string `json:"provider"`
+	//+required
+	Owner string `json:"owner"`
+	//+required
+	RepositoryName string `json:"repositoryName"`
+	//+required
+	Credentials Credentials `json:"credentials"`
 
 	//+optional
 	Interval metav1.Duration `json:"interval,omitempty"`
 	//+optional
-	//+kubebuilder:default:=internal
+	//+kubebuilder:default:=private
 	Visibility string `json:"visibility,omitempty"`
 	//+kubebuilder:default:=true
 	IsOrganization bool `json:"isOrganization,omitempty"`
@@ -41,6 +55,10 @@ type RepositorySpec struct {
 	//+optional
 	//+kubebuilder:default:=true
 	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
+	//+optional
+	//+kubebuilder:default:=adopt
+	//+kubebuilder:validation:Enum=adopt;fail
+	ExistingRepositoryPolicy ExistingRepositoryPolicy `json:"existingRepositoryPolicy,omitempty"`
 }
 
 // RepositoryStatus defines the observed state of Repository

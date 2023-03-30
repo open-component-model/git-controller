@@ -103,21 +103,39 @@ func (c *Client) constructAuthenticationOption(ctx context.Context, obj mpasv1al
 func (c *Client) createOrganizationRepository(ctx context.Context, gc gitprovider.Client, domain string, visibility gitprovider.RepositoryVisibility, spec mpasv1alpha1.RepositorySpec) error {
 	logger := log.FromContext(ctx)
 
-	repo, err := gc.OrgRepositories().Create(ctx, gitprovider.OrgRepositoryRef{
+	ref := gitprovider.OrgRepositoryRef{
 		OrganizationRef: gitprovider.OrganizationRef{
 			Domain:       domain,
 			Organization: spec.Owner,
 		},
 		RepositoryName: spec.RepositoryName,
-	}, gitprovider.RepositoryInfo{
+	}
+	info := gitprovider.RepositoryInfo{
 		DefaultBranch: gitprovider.StringVar("main"),
 		Visibility:    &visibility,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create repository: %w", err)
 	}
 
-	logger.Info("organization repository successfully created", "name", repo.Repository().String())
+	switch spec.ExistingRepositoryPolicy {
+	case mpasv1alpha1.ExistingRepositoryPolicyFail:
+		if _, err := gc.OrgRepositories().Create(ctx, ref, info); err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+
+		logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
+	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
+		_, created, err := gc.OrgRepositories().Reconcile(ctx, ref, info)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile repository: %w", err)
+		}
+
+		if !created {
+			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
+		} else {
+			logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
+		}
+	default:
+		return fmt.Errorf("unknown repository policy '%s'", spec.ExistingRepositoryPolicy)
+	}
 
 	return nil
 }
@@ -125,21 +143,39 @@ func (c *Client) createOrganizationRepository(ctx context.Context, gc gitprovide
 func (c *Client) createUserRepository(ctx context.Context, gc gitprovider.Client, domain string, visibility gitprovider.RepositoryVisibility, spec mpasv1alpha1.RepositorySpec) error {
 	logger := log.FromContext(ctx)
 
-	repo, err := gc.UserRepositories().Create(ctx, gitprovider.UserRepositoryRef{
+	ref := gitprovider.UserRepositoryRef{
 		UserRef: gitprovider.UserRef{
 			Domain:    domain,
 			UserLogin: spec.Owner,
 		},
 		RepositoryName: spec.RepositoryName,
-	}, gitprovider.RepositoryInfo{
+	}
+	info := gitprovider.RepositoryInfo{
 		DefaultBranch: gitprovider.StringVar("main"),
 		Visibility:    &visibility,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create repository: %w", err)
 	}
 
-	logger.Info("user repository successfully created", "name", repo.Repository().String())
+	switch spec.ExistingRepositoryPolicy {
+	case mpasv1alpha1.ExistingRepositoryPolicyFail:
+		if _, err := gc.UserRepositories().Create(ctx, ref, info); err != nil {
+			return fmt.Errorf("failed to create repository: %w", err)
+		}
+
+		logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
+	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
+		_, created, err := gc.UserRepositories().Reconcile(ctx, ref, info)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile repository: %w", err)
+		}
+
+		if !created {
+			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
+		} else {
+			logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
+		}
+	default:
+		return fmt.Errorf("unknown repository policy '%s'", spec.ExistingRepositoryPolicy)
+	}
 
 	return nil
 }

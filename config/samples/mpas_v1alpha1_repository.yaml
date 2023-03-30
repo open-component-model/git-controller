@@ -6,7 +6,6 @@ spec:
   credentials:
     secretRef:
       name: github-creds
-  interval: 10m
   owner: Skarlso
   provider: github
   repositoryName: new-repository-1

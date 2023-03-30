@@ -56,6 +56,14 @@ spec:
                 type: object
               domain:
                 type: string
+              existingRepositoryPolicy:
+                default: adopt
+                description: ExistingRepositoryPolicy defines what to do in case a
+                  requested repository already exists.
+                enum:
+                - adopt
+                - fail
+                type: string
               interval:
                 type: string
               isOrganization:
@@ -72,7 +80,7 @@ spec:
               repositoryName:
                 type: string
               visibility:
-                default: internal
+                default: private
                 type: string
             required:
             - credentials
