@@ -8,9 +8,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/open-component-model/git-controller/pkg/gogit"
-	"github.com/open-component-model/git-controller/pkg/providers/github"
-	"github.com/open-component-model/git-controller/pkg/providers/gitlab"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -24,8 +21,12 @@ import (
 
 	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
-	controllers "github.com/open-component-model/git-controller/controllers/delivery"
+	"github.com/open-component-model/git-controller/controllers/delivery"
 	mpascontrollers "github.com/open-component-model/git-controller/controllers/mpas"
+	"github.com/open-component-model/git-controller/pkg/gogit"
+	"github.com/open-component-model/git-controller/pkg/providers/gitea"
+	"github.com/open-component-model/git-controller/pkg/providers/github"
+	"github.com/open-component-model/git-controller/pkg/providers/gitlab"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -93,7 +94,7 @@ func main() {
 	cache := oci.NewClient(ociRegistryAddr)
 	gitClient := gogit.NewGoGit(ctrl.Log, cache)
 
-	if err = (&controllers.SyncReconciler{
+	if err = (&delivery.SyncReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Git:    gitClient,
@@ -102,7 +103,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	gitlabProvider := gitlab.NewClient(mgr.GetClient(), nil)
+	giteaProvider := gitea.NewClient(mgr.GetClient(), nil)
+	gitlabProvider := gitlab.NewClient(mgr.GetClient(), giteaProvider)
 	githubProvider := github.NewClient(mgr.GetClient(), gitlabProvider)
 	if err = (&mpascontrollers.RepositoryReconciler{
 		Client:   mgr.GetClient(),
