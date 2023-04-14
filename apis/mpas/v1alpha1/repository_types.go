@@ -5,19 +5,17 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SecretRef is a reference to a secret in the same namespace as the referencing object.
-type SecretRef struct {
-	Name string `json:"name"`
-}
-
 // Credentials contains ways of authenticating the creation of a repository.
 type Credentials struct {
-	SecretRef SecretRef `json:"secretRef"`
+	SecretRef v1.LocalObjectReference `json:"secretRef"`
 }
 
 // ExistingRepositoryPolicy defines what to do in case a requested repository already exists.
@@ -53,9 +51,6 @@ type RepositorySpec struct {
 	//+optional
 	Maintainers []string `json:"maintainers,omitempty"`
 	//+optional
-	//+kubebuilder:default:=true
-	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
-	//+optional
 	//+kubebuilder:default:=adopt
 	//+kubebuilder:validation:Enum=adopt;fail
 	ExistingRepositoryPolicy ExistingRepositoryPolicy `json:"existingRepositoryPolicy,omitempty"`
@@ -87,6 +82,30 @@ func (in *Repository) SetConditions(conditions []metav1.Condition) {
 // reconciled again.
 func (in Repository) GetRequeueAfter() time.Duration {
 	return in.Spec.Interval.Duration
+}
+
+// GetRepositoryURL construct a repository URL based on either domain or the provider data.
+func (in Repository) GetRepositoryURL() string {
+	if in.Spec.Domain != "" {
+		if strings.Contains(in.Spec.Domain, "@") {
+			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.Spec.RepositoryName)
+		}
+
+		return fmt.Sprintf("%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.Spec.RepositoryName)
+	}
+
+	domain := ""
+
+	switch in.Spec.Provider {
+	case "github":
+		domain = "github.com"
+	case "gitlab":
+		domain = "gitlab.com"
+	case "gitea":
+		domain = "gitea.com"
+	}
+
+	return fmt.Sprintf("https://%s/%s/%s", domain, in.Spec.Owner, in.Spec.RepositoryName)
 }
 
 //+kubebuilder:object:root=true

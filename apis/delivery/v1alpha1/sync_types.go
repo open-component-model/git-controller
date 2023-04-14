@@ -7,14 +7,9 @@ package v1alpha1
 import (
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// Ref defines a name and namespace ref to any object.
-type Ref struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
 
 // CommitTemplate defines the details of the commit to the external repository.
 type CommitTemplate struct {
@@ -25,14 +20,17 @@ type CommitTemplate struct {
 
 // SyncSpec defines the desired state of Sync
 type SyncSpec struct {
-	SnapshotRef    Ref             `json:"snapshotRef"`
-	Interval       metav1.Duration `json:"interval"`
-	URL            string          `json:"url"`
-	Branch         string          `json:"branch"`
-	AuthRef        Ref             `json:"authRef"`
-	CommitTemplate *CommitTemplate `json:"commitTemplate"`
-	SubPath        string          `json:"subPath"`
-	Prune          bool            `json:"prune,omitempty"`
+	SnapshotRef    v1.LocalObjectReference `json:"snapshotRef"`
+	RepositoryRef  v1.LocalObjectReference `json:"repositoryRef"`
+	Interval       metav1.Duration         `json:"interval"`
+	CommitTemplate *CommitTemplate         `json:"commitTemplate"`
+	SubPath        string                  `json:"subPath"`
+	Prune          bool                    `json:"prune,omitempty"`
+
+	//+optional
+	Branch string `json:"branch,omitempty"`
+	//+optional
+	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
 }
 
 // SyncStatus defines the observed state of Sync

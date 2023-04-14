@@ -7,6 +7,7 @@ package delivery
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
@@ -20,6 +21,7 @@ import (
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
+	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg"
 )
 
@@ -35,21 +37,37 @@ func TestSyncReconciler(t *testing.T) {
 			"password": []byte("password"),
 		},
 	}
+	repository := &mpasv1alpha1.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-repository",
+			Namespace: "default",
+		},
+		Spec: mpasv1alpha1.RepositorySpec{
+			Provider:       "github",
+			Owner:          "Skarlso",
+			RepositoryName: "test",
+			Credentials: mpasv1alpha1.Credentials{
+				SecretRef: v1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			},
+			Interval:                 metav1.Duration{Duration: 10 * time.Second},
+			Visibility:               "public",
+			ExistingRepositoryPolicy: mpasv1alpha1.ExistingRepositoryPolicyAdopt,
+		},
+	}
 	sync := &v1alpha1.Sync{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "git-test",
 			Namespace: "default",
 		},
 		Spec: v1alpha1.SyncSpec{
-			SnapshotRef: v1alpha1.Ref{
-				Name:      snapshot.Name,
-				Namespace: snapshot.Namespace,
+			SnapshotRef: v1.LocalObjectReference{
+				Name: snapshot.Name,
 			},
-			AuthRef: v1alpha1.Ref{
-				Name:      secret.Name,
-				Namespace: secret.Namespace,
+			RepositoryRef: v1.LocalObjectReference{
+				Name: repository.Name,
 			},
-			URL:    "https://github.com/Skarlso/test",
 			Branch: "main",
 			CommitTemplate: &v1alpha1.CommitTemplate{
 				Name:    "Skarlso",
@@ -61,7 +79,7 @@ func TestSyncReconciler(t *testing.T) {
 		},
 	}
 
-	client := env.FakeKubeClient(WithObjets(sync, snapshot, secret), WithAddToScheme(ocmv1.AddToScheme))
+	client := env.FakeKubeClient(WithObjets(sync, snapshot, secret, repository), WithAddToScheme(ocmv1.AddToScheme), WithAddToScheme(mpasv1alpha1.AddToScheme))
 	m := &mockGit{
 		digest: "test-digest",
 	}

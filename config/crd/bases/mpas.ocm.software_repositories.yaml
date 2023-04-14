@@ -35,22 +35,20 @@ spec:
           spec:
             description: RepositorySpec defines the desired state of Repository
             properties:
-              automaticPullRequestCreation:
-                default: true
-                type: boolean
               credentials:
                 description: Credentials contains ways of authenticating the creation
                   of a repository.
                 properties:
                   secretRef:
-                    description: SecretRef is a reference to a secret in the same
-                      namespace as the referencing object.
+                    description: LocalObjectReference contains enough information
+                      to let you locate the referenced object inside the same namespace.
                     properties:
                       name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
                         type: string
-                    required:
-                    - name
                     type: object
+                    x-kubernetes-map-type: atomic
                 required:
                 - secretRef
                 type: object

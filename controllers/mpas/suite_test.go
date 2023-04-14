@@ -62,7 +62,7 @@ var (
 			Owner:          "e2e-tester",
 			RepositoryName: "test-repository",
 			Credentials: mpasv1alpha1.Credentials{
-				SecretRef: mpasv1alpha1.SecretRef{
+				SecretRef: corev1.LocalObjectReference{
 					Name: "repository-creds",
 				},
 			},

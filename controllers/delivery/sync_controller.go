@@ -24,6 +24,7 @@ import (
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
+	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	providers "github.com/open-component-model/git-controller/pkg"
 )
 
@@ -129,7 +130,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	snapshot := &ocmv1.Snapshot{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: obj.Spec.SnapshotRef.Namespace,
+		Namespace: obj.Namespace,
 		Name:      obj.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
 		retErr = fmt.Errorf("failed to find snapshot: %w", err)
@@ -138,10 +139,21 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, retErr
 	}
 
+	repository := &mpasv1alpha1.Repository{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: obj.Namespace,
+		Name:      obj.Spec.RepositoryRef.Name,
+	}, repository); err != nil {
+		retErr = fmt.Errorf("failed to find repository: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.RepositoryGetFailedReason, retErr.Error())
+
+		return ctrl.Result{}, retErr
+	}
+
 	authSecret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: obj.Spec.AuthRef.Namespace,
-		Name:      obj.Spec.AuthRef.Name,
+		Namespace: obj.Namespace,
+		Name:      repository.Spec.Credentials.SecretRef.Name,
 	}, authSecret); err != nil {
 		retErr = fmt.Errorf("failed to find authentication secret: %w", err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CredentialsNotFoundReason, retErr.Error())
@@ -152,7 +164,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// trim any trailing `/` and then just add.
 	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
 	opts := &providers.PushOptions{
-		URL:      obj.Spec.URL,
+		URL:      repository.GetRepositoryURL(),
 		Message:  obj.Spec.CommitTemplate.Message,
 		Name:     obj.Spec.CommitTemplate.Name,
 		Email:    obj.Spec.CommitTemplate.Email,

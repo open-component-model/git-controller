@@ -4,9 +4,6 @@ metadata:
   name: git-sample
   namespace: ocm-system
 spec:
-  authRef:
-    name: git-secret
-    namespace: ocm-system
   branch: main
   commitTemplate:
     email: <email>
@@ -14,10 +11,7 @@ spec:
     name: Gergely Brautigam
   interval: 10m0s
   subPath: ./application/podinfo
-  url: https://github.com/Skarlso/test
-  componentRef:
-    name: ocm-test-component
-    namespace: ocm-system
   snapshotRef:
     name: ocm-test-snapshot
-    namespace: ocm-system
+  repositoryRef:
+    name: test-repositroy
