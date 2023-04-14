@@ -11,6 +11,9 @@ const (
 	// SnapshotGetFailedReason is used when the needed snapshot does not exist.
 	SnapshotGetFailedReason = "SnapshotGetFailed"
 
+	// RepositoryGetFailedReason is used when the needed repository does not exist.
+	RepositoryGetFailedReason = "RepositoryGetFailed"
+
 	// CredentialsNotFoundReason is used when the needed authentication does not exist.
 	CredentialsNotFoundReason = "CredentialsNotFound"
 

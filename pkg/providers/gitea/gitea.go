@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	tokenKey     = "token"
-	providerType = "gitea"
+	tokenKey      = "token"
+	providerType  = "gitea"
+	defaultDomain = "gitea.com"
 )
 
 // Client gitea.
@@ -60,7 +61,12 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 		return fmt.Errorf("token '%s' not found in secret", tokenKey)
 	}
 
-	client, err := gitea.NewClient(obj.Spec.Domain, gitea.SetToken(string(token)))
+	domain := defaultDomain
+	if obj.Spec.Domain != "" {
+		domain = obj.Spec.Domain
+	}
+
+	client, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
 	if err != nil {
 		return fmt.Errorf("failed to create gitea client: %w", err)
 	}
