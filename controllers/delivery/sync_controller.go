@@ -8,10 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
+	"github.com/open-component-model/git-controller/pkg/providers"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +27,7 @@ import (
 
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
-	providers "github.com/open-component-model/git-controller/pkg"
+	"github.com/open-component-model/git-controller/pkg"
 )
 
 // SyncReconciler reconciles a Sync object
@@ -33,7 +35,8 @@ type SyncReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Git providers.Git
+	Git      pkg.Git
+	Provider providers.Provider
 }
 
 //+kubebuilder:rbac:groups=delivery.ocm.software,resources=syncs,verbs=get;list;watch;create;update;patch;delete
@@ -161,15 +164,25 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, retErr
 	}
 
+	branch := obj.Spec.Branch
+	if branch == "" && obj.Spec.AutomaticPullRequestCreation {
+		branch = fmt.Sprintf("branch-%d", time.Now().Unix())
+	} else if branch == "" && !obj.Spec.AutomaticPullRequestCreation {
+		retErr = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, retErr.Error())
+
+		return ctrl.Result{}, retErr
+	}
+
 	// trim any trailing `/` and then just add.
 	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
-	opts := &providers.PushOptions{
+	opts := &pkg.PushOptions{
 		URL:      repository.GetRepositoryURL(),
 		Message:  obj.Spec.CommitTemplate.Message,
 		Name:     obj.Spec.CommitTemplate.Name,
 		Email:    obj.Spec.CommitTemplate.Email,
 		Snapshot: snapshot,
-		Branch:   obj.Spec.Branch,
+		Branch:   branch,
 		SubPath:  obj.Spec.SubPath,
 	}
 
@@ -184,6 +197,15 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	obj.Status.Digest = digest
+
+	if obj.Spec.AutomaticPullRequestCreation {
+		if err := r.Provider.CreatePullRequest(ctx, branch, *obj, *repository); err != nil {
+			retErr = fmt.Errorf("failed to create pull request: %w", err)
+			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, retErr.Error())
+
+			return ctrl.Result{}, retErr
+		}
+	}
 
 	// Remove any stale Ready condition, most likely False, set above. Its value
 	// is derived from the overall result of the reconciliation in the deferred
@@ -200,10 +222,10 @@ func (r *SyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *providers.PushOptions) {
+func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *pkg.PushOptions) {
 	if _, ok := secret.Data["identity"]; ok {
-		opts.Auth = &providers.Auth{
-			SSH: &providers.SSH{
+		opts.Auth = &pkg.Auth{
+			SSH: &pkg.SSH{
 				PemBytes: secret.Data["identity"],
 				User:     string(secret.Data["username"]),
 				Password: string(secret.Data["password"]),
@@ -212,8 +234,8 @@ func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *providers.
 		return
 	}
 	// default to basic auth.
-	opts.Auth = &providers.Auth{
-		BasicAuth: &providers.BasicAuth{
+	opts.Auth = &pkg.Auth{
+		BasicAuth: &pkg.BasicAuth{
 			Username: string(secret.Data["username"]),
 			Password: string(secret.Data["password"]),
 		},

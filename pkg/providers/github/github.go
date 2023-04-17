@@ -10,6 +10,7 @@ import (
 
 	"github.com/fluxcd/go-git-providers/github"
 	"github.com/fluxcd/go-git-providers/gitprovider"
+	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -91,6 +92,33 @@ func (c *Client) constructAuthenticationOption(ctx context.Context, obj mpasv1al
 	return gitprovider.WithOAuth2Token(string(token)), nil
 }
 
-func (c *Client) CreatePullRequest(ctx context.Context, owner, repo, title, branch, description string) error {
-	return nil
+func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+	if repository.Spec.Provider != providerType {
+		if c.next == nil {
+			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+		}
+
+		return c.next.CreatePullRequest(ctx, branch, sync, repository)
+	}
+
+	authenticationOption, err := c.constructAuthenticationOption(ctx, repository)
+	if err != nil {
+		return err
+	}
+
+	domain := defaultDomain
+	if repository.Spec.Domain != "" {
+		domain = repository.Spec.Domain
+	}
+
+	gc, err := github.NewClient(authenticationOption, gitprovider.WithDomain(domain))
+	if err != nil {
+		return fmt.Errorf("failed to create github client: %w", err)
+	}
+
+	if repository.Spec.IsOrganization {
+		return gogit.CreateOrganizationPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository.Spec)
+	}
+
+	return gogit.CreateUserPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository.Spec)
 }

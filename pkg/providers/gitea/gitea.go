@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"code.gitea.io/sdk/gitea"
+	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,6 +91,64 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 	return nil
 }
 
-func (c *Client) CreatePullRequest(ctx context.Context, owner, repo, title, branch, description string) error {
+func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+	if repository.Spec.Provider != providerType {
+		if c.next == nil {
+			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+		}
+
+		return c.next.CreatePullRequest(ctx, branch, sync, repository)
+	}
+
+	secret := &v1.Secret{}
+	if err := c.client.Get(ctx, types.NamespacedName{
+		Name:      repository.Spec.Credentials.SecretRef.Name,
+		Namespace: repository.Namespace,
+	}, secret); err != nil {
+		return fmt.Errorf("failed to get secret: %w", err)
+	}
+
+	token, ok := secret.Data[tokenKey]
+	if !ok {
+		return fmt.Errorf("token '%s' not found in secret", tokenKey)
+	}
+
+	domain := defaultDomain
+	if repository.Spec.Domain != "" {
+		domain = repository.Spec.Domain
+	}
+
+	client, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
+	if err != nil {
+		return fmt.Errorf("failed to create gitea client: %w", err)
+	}
+
+	var (
+		title       = providers.DefaultTitle
+		base        = providers.DefaultBaseBranch
+		description = providers.DefaultDescription
+	)
+
+	if sync.Spec.PullRequestTemplate.Title != "" {
+		title = sync.Spec.PullRequestTemplate.Title
+	}
+
+	if sync.Spec.PullRequestTemplate.Base != "" {
+		base = sync.Spec.PullRequestTemplate.Base
+	}
+
+	if sync.Spec.PullRequestTemplate.Description != "" {
+		description = sync.Spec.PullRequestTemplate.Description
+	}
+
+	if _, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.Spec.RepositoryName, gitea.CreatePullRequestOption{
+		Head:  branch,
+		Base:  base,
+		Title: title,
+		Body:  description,
+	}); err != nil {
+		return fmt.Errorf("failed to create pull request: %w", err)
+	}
+
 	return nil
 }

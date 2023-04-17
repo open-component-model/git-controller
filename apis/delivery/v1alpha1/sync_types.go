@@ -18,6 +18,13 @@ type CommitTemplate struct {
 	Message string `json:"message"`
 }
 
+// PullRequestTemplate provides information for the created pull request.
+type PullRequestTemplate struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Base        string `json:"base,omitempty"`
+}
+
 // SyncSpec defines the desired state of Sync
 type SyncSpec struct {
 	SnapshotRef    v1.LocalObjectReference `json:"snapshotRef"`
@@ -31,6 +38,8 @@ type SyncSpec struct {
 	Branch string `json:"branch,omitempty"`
 	//+optional
 	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
+	//+optional
+	PullRequestTemplate PullRequestTemplate `json:"pullRequestTemplate,omitempty"`
 }
 
 // SyncStatus defines the observed state of Sync

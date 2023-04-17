@@ -58,6 +58,17 @@ spec:
                 type: string
               prune:
                 type: boolean
+              pullRequestTemplate:
+                description: PullRequestTemplate provides information for the created
+                  pull request.
+                properties:
+                  base:
+                    type: string
+                  description:
+                    type: string
+                  title:
+                    type: string
+                type: object
               repositoryRef:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.
