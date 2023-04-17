@@ -37,17 +37,20 @@ spec:
             properties:
               automaticPullRequestCreation:
                 type: boolean
-              branch:
-                type: string
               commitTemplate:
                 description: CommitTemplate defines the details of the commit to the
                   external repository.
                 properties:
+                  baseBranch:
+                    default: main
+                    type: string
                   email:
                     type: string
                   message:
                     type: string
                   name:
+                    type: string
+                  targetBranch:
                     type: string
                 required:
                 - email

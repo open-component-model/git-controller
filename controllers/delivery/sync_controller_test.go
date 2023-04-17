@@ -69,11 +69,11 @@ func TestSyncReconciler(t *testing.T) {
 			RepositoryRef: v1.LocalObjectReference{
 				Name: repository.Name,
 			},
-			Branch: "main",
-			CommitTemplate: &v1alpha1.CommitTemplate{
-				Name:    "Skarlso",
-				Email:   "email@mail.com",
-				Message: "This is my message",
+			CommitTemplate: v1alpha1.CommitTemplate{
+				TargetBranch: "main",
+				Name:         "Skarlso",
+				Email:        "email@mail.com",
+				Message:      "This is my message",
 			},
 			SubPath: "./subpath",
 			Prune:   true,
@@ -151,11 +151,11 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 			RepositoryRef: v1.LocalObjectReference{
 				Name: repository.Name,
 			},
-			Branch: "main",
-			CommitTemplate: &v1alpha1.CommitTemplate{
-				Name:    "Skarlso",
-				Email:   "email@mail.com",
-				Message: "This is my message",
+			CommitTemplate: v1alpha1.CommitTemplate{
+				TargetBranch: "main",
+				Name:         "Skarlso",
+				Email:        "email@mail.com",
+				Message:      "This is my message",
 			},
 			SubPath:                      "./subpath",
 			Prune:                        true,

@@ -49,7 +49,7 @@ func (in *Sync) DeepCopyInto(out *Sync) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec.DeepCopyInto(&out.Spec)
+	out.Spec = in.Spec
 	in.Status.DeepCopyInto(&out.Status)
 }
 
@@ -109,11 +109,7 @@ func (in *SyncSpec) DeepCopyInto(out *SyncSpec) {
 	out.SnapshotRef = in.SnapshotRef
 	out.RepositoryRef = in.RepositoryRef
 	out.Interval = in.Interval
-	if in.CommitTemplate != nil {
-		in, out := &in.CommitTemplate, &out.CommitTemplate
-		*out = new(CommitTemplate)
-		**out = **in
-	}
+	out.CommitTemplate = in.CommitTemplate
 	out.PullRequestTemplate = in.PullRequestTemplate
 }
 

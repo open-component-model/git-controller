@@ -20,8 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
@@ -56,7 +58,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	)
 
 	log := log.FromContext(ctx)
-	log.V(4).Info("starting reconcile loop for snapshot")
+
 	obj := &v1alpha1.Sync{}
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -142,6 +144,8 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, retErr
 	}
 
+	log.V(4).Info("found target snapshot")
+
 	repository := &mpasv1alpha1.Repository{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Namespace: obj.Namespace,
@@ -152,6 +156,8 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		return ctrl.Result{}, retErr
 	}
+
+	log.V(4).Info("found target repository")
 
 	authSecret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{
@@ -164,26 +170,35 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, retErr
 	}
 
-	branch := obj.Spec.Branch
-	if branch == "" && obj.Spec.AutomaticPullRequestCreation {
-		branch = fmt.Sprintf("branch-%d", time.Now().Unix())
-	} else if branch == "" && !obj.Spec.AutomaticPullRequestCreation {
+	log.V(4).Info("found authentication secret")
+
+	baseBranch := obj.Spec.CommitTemplate.BaseBranch
+	if baseBranch == "" {
+		baseBranch = "main"
+	}
+	targetBranch := obj.Spec.CommitTemplate.TargetBranch
+	if targetBranch == "" && obj.Spec.AutomaticPullRequestCreation {
+		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
+	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
 		retErr = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
 		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, retErr.Error())
 
 		return ctrl.Result{}, retErr
 	}
 
+	log.Info("preparing to push snapshot content", "base", baseBranch, "target", targetBranch)
+
 	// trim any trailing `/` and then just add.
 	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
 	opts := &pkg.PushOptions{
-		URL:      repository.GetRepositoryURL(),
-		Message:  obj.Spec.CommitTemplate.Message,
-		Name:     obj.Spec.CommitTemplate.Name,
-		Email:    obj.Spec.CommitTemplate.Email,
-		Snapshot: snapshot,
-		Branch:   branch,
-		SubPath:  obj.Spec.SubPath,
+		URL:          repository.GetRepositoryURL(),
+		Message:      obj.Spec.CommitTemplate.Message,
+		Name:         obj.Spec.CommitTemplate.Name,
+		Email:        obj.Spec.CommitTemplate.Email,
+		Snapshot:     snapshot,
+		BaseBranch:   baseBranch,
+		TargetBranch: targetBranch,
+		SubPath:      obj.Spec.SubPath,
 	}
 
 	r.parseAuthSecret(authSecret, opts)
@@ -196,10 +211,14 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, retErr
 	}
 
+	log.Info("target content pushed with digest", "base", baseBranch, "target", targetBranch, "digest", digest)
+
 	obj.Status.Digest = digest
 
 	if obj.Spec.AutomaticPullRequestCreation {
-		if err := r.Provider.CreatePullRequest(ctx, branch, *obj, *repository); err != nil {
+		log.Info("automatic pull-request creation is enabled, preparing to create a pull request")
+
+		if err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository); err != nil {
 			retErr = fmt.Errorf("failed to create pull request: %w", err)
 			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, retErr.Error())
 
@@ -212,13 +231,15 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// block at the very end.
 	conditions.Delete(obj, meta.ReadyCondition)
 
+	log.Info("successfully reconciled sync object")
+
 	return result, retErr
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Sync{}).
+		For(&v1alpha1.Sync{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 

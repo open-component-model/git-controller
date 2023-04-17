@@ -16,6 +16,12 @@ type CommitTemplate struct {
 	Name    string `json:"name"`
 	Email   string `json:"email"`
 	Message string `json:"message"`
+
+	//+optional
+	TargetBranch string `json:"targetBranch,omitempty"`
+	//+optional
+	//+kubebuilder:default:=main
+	BaseBranch string `json:"baseBranch,omitempty"`
 }
 
 // PullRequestTemplate provides information for the created pull request.
@@ -30,12 +36,10 @@ type SyncSpec struct {
 	SnapshotRef    v1.LocalObjectReference `json:"snapshotRef"`
 	RepositoryRef  v1.LocalObjectReference `json:"repositoryRef"`
 	Interval       metav1.Duration         `json:"interval"`
-	CommitTemplate *CommitTemplate         `json:"commitTemplate"`
+	CommitTemplate CommitTemplate          `json:"commitTemplate"`
 	SubPath        string                  `json:"subPath"`
 	Prune          bool                    `json:"prune,omitempty"`
 
-	//+optional
-	Branch string `json:"branch,omitempty"`
 	//+optional
 	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`
 	//+optional
