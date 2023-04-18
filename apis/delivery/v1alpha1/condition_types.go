@@ -19,4 +19,7 @@ const (
 
 	// GitRepositoryPushFailedReason is used when the needed pushing to a git repository failed.
 	GitRepositoryPushFailedReason = "GitRepositoryPushFailed"
+
+	// CreatePullRequestFailedReason is used when creating a pull request failed.
+	CreatePullRequestFailedReason = "CreatePullRequestFailed"
 )

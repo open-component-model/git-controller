@@ -74,17 +74,6 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "76b5aa10.ocm.software",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -93,19 +82,20 @@ func main() {
 
 	cache := oci.NewClient(ociRegistryAddr)
 	gitClient := gogit.NewGoGit(ctrl.Log, cache)
+	giteaProvider := gitea.NewClient(mgr.GetClient(), nil)
+	gitlabProvider := gitlab.NewClient(mgr.GetClient(), giteaProvider)
+	githubProvider := github.NewClient(mgr.GetClient(), gitlabProvider)
 
 	if err = (&delivery.SyncReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Git:    gitClient,
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Git:      gitClient,
+		Provider: githubProvider,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Sync")
 		os.Exit(1)
 	}
 
-	giteaProvider := gitea.NewClient(mgr.GetClient(), nil)
-	gitlabProvider := gitlab.NewClient(mgr.GetClient(), giteaProvider)
-	githubProvider := github.NewClient(mgr.GetClient(), gitlabProvider)
 	if err = (&mpascontrollers.RepositoryReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),

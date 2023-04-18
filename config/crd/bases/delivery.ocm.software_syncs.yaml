@@ -37,17 +37,20 @@ spec:
             properties:
               automaticPullRequestCreation:
                 type: boolean
-              branch:
-                type: string
               commitTemplate:
                 description: CommitTemplate defines the details of the commit to the
                   external repository.
                 properties:
+                  baseBranch:
+                    default: main
+                    type: string
                   email:
                     type: string
                   message:
                     type: string
                   name:
+                    type: string
+                  targetBranch:
                     type: string
                 required:
                 - email
@@ -58,6 +61,17 @@ spec:
                 type: string
               prune:
                 type: boolean
+              pullRequestTemplate:
+                description: PullRequestTemplate provides information for the created
+                  pull request.
+                properties:
+                  base:
+                    type: string
+                  description:
+                    type: string
+                  title:
+                    type: string
+                type: object
               repositoryRef:
                 description: LocalObjectReference contains enough information to let
                   you locate the referenced object inside the same namespace.

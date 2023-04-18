@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/containers/image/v5/pkg/compression"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -65,7 +66,7 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	cloneOptions := &git.CloneOptions{
 		URL:           opts.URL,
 		Depth:         1,
-		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", opts.Branch)),
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", opts.BaseBranch)),
 		Auth:          auth,
 	}
 
@@ -77,6 +78,15 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	w, err := r.Worktree()
 	if err != nil {
 		return "", fmt.Errorf("failed to create a worktree: %w", err)
+	}
+
+	if opts.TargetBranch != opts.BaseBranch {
+		if err := w.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.NewBranchReferenceName(opts.TargetBranch),
+			Create: true,
+		}); err != nil {
+			return "", fmt.Errorf("failed to checkout new branch: %w", err)
+		}
 	}
 
 	dir = filepath.Join(dir, opts.SubPath)
@@ -94,9 +104,15 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 		return "", fmt.Errorf("failed to fetch blob for digest: %w", err)
 	}
 
+	uncompressed, _, err := compression.AutoDecompress(blob)
+	if err != nil {
+		return "", fmt.Errorf("failed to auto decompress: %w", err)
+	}
+	defer uncompressed.Close()
+
 	// we only care about the error if it is NOT a header error. Otherwise, we assume the content
 	// wasn't compressed.
-	if err = Untar(blob, dir); err != nil {
+	if err = Untar(uncompressed, dir); err != nil {
 		return "", fmt.Errorf("failed to untar content: %w", err)
 	}
 
@@ -112,6 +128,7 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 			When:  time.Now(),
 		},
 	}
+
 	commit, err := w.Commit("Uploading snapshot to location", commitOpts)
 	if err != nil {
 		return "", fmt.Errorf("failed to commit changes: %w", err)

@@ -5,6 +5,7 @@ go 1.20
 require (
 	code.gitea.io/sdk/gitea v0.15.1
 	github.com/Masterminds/semver/v3 v3.2.0
+	github.com/containers/image/v5 v5.21.1
 	github.com/fluxcd/go-git-providers v0.15.0
 	github.com/fluxcd/pkg/apis/meta v0.19.0
 	github.com/fluxcd/pkg/runtime v0.27.0
@@ -48,7 +49,6 @@ require (
 	github.com/cloudflare/circl v1.3.2 // indirect
 	github.com/containerd/containerd v1.6.18 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.1 // indirect
-	github.com/containers/image/v5 v5.21.1 // indirect
 	github.com/containers/libtrust v0.0.0-20200511145503-9c3a6c22cd9a // indirect
 	github.com/containers/ocicrypt v1.1.5 // indirect
 	github.com/containers/storage v1.42.0 // indirect
