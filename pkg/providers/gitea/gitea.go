@@ -7,6 +7,7 @@ package gitea
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"code.gitea.io/sdk/gitea"
 	v1 "k8s.io/api/core/v1"
@@ -86,6 +87,26 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 		TrustModel:    gitea.TrustModelDefault,
 	}); err != nil {
 		return fmt.Errorf("failed to create repositroy: %w", err)
+	}
+
+	if len(obj.Spec.Maintainers) != 0 {
+		content := strings.Builder{}
+
+		for _, m := range obj.Spec.Maintainers {
+			_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
+		}
+
+		_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, "CODEOWNERS", gitea.CreateFileOptions{
+			FileOptions: gitea.FileOptions{
+				Message:    "Adding CODEOWNERS file.",
+				BranchName: "main",
+			},
+			Content: content.String(),
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+		}
 	}
 
 	return nil

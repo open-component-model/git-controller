@@ -7,6 +7,7 @@ package gogit
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/fluxcd/go-git-providers/gitprovider"
 	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
@@ -37,15 +38,25 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		Visibility:    &visibility,
 	}
 
+	createOpts, err := gitprovider.MakeRepositoryCreateOptions(&gitprovider.RepositoryCreateOptions{AutoInit: gitprovider.BoolVar(true)})
+	if err != nil {
+		return fmt.Errorf("failed to create _create_ options for repository: %w", err)
+	}
+
 	switch spec.ExistingRepositoryPolicy {
 	case mpasv1alpha1.ExistingRepositoryPolicyFail:
-		if _, err := gc.OrgRepositories().Create(ctx, ref, info); err != nil {
+		repo, err := gc.OrgRepositories().Create(ctx, ref, info, &createOpts)
+		if err != nil {
 			return fmt.Errorf("failed to create repository: %w", err)
+		}
+
+		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 		}
 
 		logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
 	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
-		_, created, err := gc.OrgRepositories().Reconcile(ctx, ref, info)
+		repo, created, err := gc.OrgRepositories().Reconcile(ctx, ref, info, &createOpts)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile repository: %w", err)
 		}
@@ -53,6 +64,10 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		if !created {
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
+			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+			}
+
 			logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
 		}
 	default:
@@ -84,15 +99,25 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		Visibility:    &visibility,
 	}
 
+	createOpts, err := gitprovider.MakeRepositoryCreateOptions(&gitprovider.RepositoryCreateOptions{AutoInit: gitprovider.BoolVar(true)})
+	if err != nil {
+		return fmt.Errorf("failed to create _create_ options for repository: %w", err)
+	}
+
 	switch spec.ExistingRepositoryPolicy {
 	case mpasv1alpha1.ExistingRepositoryPolicyFail:
-		if _, err := gc.UserRepositories().Create(ctx, ref, info); err != nil {
+		repo, err := gc.UserRepositories().Create(ctx, ref, info, &createOpts)
+		if err != nil {
 			return fmt.Errorf("failed to create repository: %w", err)
+		}
+
+		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 		}
 
 		logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
 	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
-		_, created, err := gc.UserRepositories().Reconcile(ctx, ref, info)
+		repo, created, err := gc.UserRepositories().Reconcile(ctx, ref, info, &createOpts)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile repository: %w", err)
 		}
@@ -100,6 +125,10 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		if !created {
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
+			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+			}
+
 			logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
 		}
 	default:
@@ -191,6 +220,41 @@ func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, b
 
 	logger := log.FromContext(ctx)
 	logger.Info("created pull request for user repository", "user", repository.Owner, "pull-request", pr.Get().Number)
+
+	return nil
+}
+
+// Repositories groups together a common functionality of both repository types.
+type Repositories interface {
+	Commits() gitprovider.CommitClient
+}
+
+func createCodeownersFile(ctx context.Context, repo Repositories, maintainers []string) error {
+	if len(maintainers) == 0 {
+		return nil
+	}
+
+	logger := log.FromContext(ctx)
+
+	content := strings.Builder{}
+
+	for _, m := range maintainers {
+		_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
+	}
+
+	files := []gitprovider.CommitFile{
+		{
+			Path:    gitprovider.StringVar("CODEOWNERS"),
+			Content: gitprovider.StringVar(content.String()),
+		},
+	}
+
+	commit, err := repo.Commits().Create(ctx, "main", "adding CODEOWNERS", files)
+	if err != nil {
+		return fmt.Errorf("failed to create CODEOWNERS file: %w", err)
+	}
+
+	logger.Info("successfully added CODEOWNERS", "url", commit.Get().URL)
 
 	return nil
 }
