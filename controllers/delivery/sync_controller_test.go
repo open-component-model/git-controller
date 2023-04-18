@@ -108,6 +108,58 @@ func TestSyncReconciler(t *testing.T) {
 	assert.True(t, conditions.IsTrue(sync, meta.ReadyCondition))
 }
 
+func TestSyncReconcilerIsSkippedIfDigestIsAlreadyPresent(t *testing.T) {
+	sync := &v1alpha1.Sync{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "git-test",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.SyncSpec{
+			SnapshotRef: v1.LocalObjectReference{
+				Name: "test",
+			},
+			RepositoryRef: v1.LocalObjectReference{
+				Name: "test",
+			},
+			CommitTemplate: v1alpha1.CommitTemplate{
+				TargetBranch: "main",
+				Name:         "Skarlso",
+				Email:        "email@mail.com",
+				Message:      "This is my message",
+			},
+			AutomaticPullRequestCreation: true,
+			SubPath:                      "./subpath",
+			Prune:                        true,
+		},
+		Status: v1alpha1.SyncStatus{
+			Digest: "digest",
+		},
+	}
+
+	client := env.FakeKubeClient(WithObjets(sync))
+	m := &mockGit{
+		digest: "test-digest",
+	}
+	fakeProvider := fakes.NewProvider()
+	gsr := SyncReconciler{
+		Client:   client,
+		Scheme:   env.scheme,
+		Git:      m,
+		Provider: fakeProvider,
+	}
+
+	_, err := gsr.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: sync.Namespace,
+			Name:      sync.Name,
+		},
+	})
+	require.NoError(t, err)
+
+	assert.False(t, m.called)
+	assert.Zero(t, fakeProvider.CreatePullRequestCallCount)
+}
+
 func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 	snapshot := DefaultSnapshot.DeepCopy()
 	secret := &v1.Secret{
@@ -203,8 +255,10 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 type mockGit struct {
 	digest string
 	err    error
+	called bool
 }
 
 func (g *mockGit) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
+	g.called = true
 	return g.digest, g.err
 }
