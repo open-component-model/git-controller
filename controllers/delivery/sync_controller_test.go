@@ -11,7 +11,6 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
-	"github.com/open-component-model/git-controller/pkg/providers/fakes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -24,6 +23,7 @@ import (
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg"
+	"github.com/open-component-model/git-controller/pkg/providers/fakes"
 )
 
 func TestSyncReconciler(t *testing.T) {
