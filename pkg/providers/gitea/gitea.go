@@ -5,9 +5,11 @@
 package gitea
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
-	"strings"
 
 	"code.gitea.io/sdk/gitea"
 	v1 "k8s.io/api/core/v1"
@@ -90,21 +92,28 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 	}
 
 	if len(obj.Spec.Maintainers) != 0 {
-		content := strings.Builder{}
+		var content []byte
+		buffer := bytes.NewBuffer(content)
 
 		for _, m := range obj.Spec.Maintainers {
-			_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
+			buffer.WriteString(m)
 		}
+
+		encoded := base64.StdEncoding.EncodeToString(buffer.Bytes())
 
 		_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, "CODEOWNERS", gitea.CreateFileOptions{
 			FileOptions: gitea.FileOptions{
 				Message:    "Adding CODEOWNERS file.",
 				BranchName: "main",
 			},
-			Content: content.String(),
+			Content: encoded,
 		})
 
 		if err != nil {
+			if _, derr := client.DeleteRepo(obj.Spec.Owner, obj.Spec.RepositoryName); derr != nil {
+				err = errors.Join(err, derr)
+			}
+
 			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 		}
 	}

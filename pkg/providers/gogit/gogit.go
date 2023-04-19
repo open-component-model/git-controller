@@ -6,6 +6,7 @@ package gogit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -51,6 +52,10 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		}
 
 		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			if cerr := repo.Delete(ctx); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
+
 			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 		}
 
@@ -65,6 +70,10 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
 			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+				if cerr := repo.Delete(ctx); cerr != nil {
+					err = errors.Join(err, cerr)
+				}
+
 				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 			}
 
@@ -112,6 +121,10 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		}
 
 		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			if cerr := repo.Delete(ctx); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
+
 			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 		}
 
@@ -126,6 +139,10 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
 			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+				if cerr := repo.Delete(ctx); cerr != nil {
+					err = errors.Join(err, cerr)
+				}
+
 				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
 			}
 
