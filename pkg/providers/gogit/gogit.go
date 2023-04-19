@@ -51,12 +51,12 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 			return fmt.Errorf("failed to create repository: %w", err)
 		}
 
-		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+		if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
 			if cerr := repo.Delete(ctx); cerr != nil {
 				err = errors.Join(err, cerr)
 			}
 
-			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+			return fmt.Errorf("failed to create initial project structure: %w", err)
 		}
 
 		logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
@@ -69,12 +69,12 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		if !created {
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
-			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
 				if cerr := repo.Delete(ctx); cerr != nil {
 					err = errors.Join(err, cerr)
 				}
 
-				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+				return fmt.Errorf("failed to create initial project structure: %w", err)
 			}
 
 			logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
@@ -120,12 +120,12 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 			return fmt.Errorf("failed to create repository: %w", err)
 		}
 
-		if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+		if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
 			if cerr := repo.Delete(ctx); cerr != nil {
 				err = errors.Join(err, cerr)
 			}
 
-			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+			return fmt.Errorf("failed to create initial project structure: %w", err)
 		}
 
 		logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
@@ -138,12 +138,12 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		if !created {
 			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
 		} else {
-			if err := createCodeownersFile(ctx, repo, spec.Maintainers); err != nil {
+			if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
 				if cerr := repo.Delete(ctx); cerr != nil {
 					err = errors.Join(err, cerr)
 				}
 
-				return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
+				return fmt.Errorf("failed to create initial project structure: %w", err)
 			}
 
 			logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
@@ -246,32 +246,44 @@ type Repositories interface {
 	Commits() gitprovider.CommitClient
 }
 
-func createCodeownersFile(ctx context.Context, repo Repositories, maintainers []string) error {
-	if len(maintainers) == 0 {
-		return nil
-	}
-
+func setupProjectStructure(ctx context.Context, repo Repositories, maintainers []string) error {
 	logger := log.FromContext(ctx)
 
-	content := strings.Builder{}
+	var files []gitprovider.CommitFile
 
-	for _, m := range maintainers {
-		_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
-	}
+	if len(maintainers) > 0 {
+		content := strings.Builder{}
 
-	files := []gitprovider.CommitFile{
-		{
+		for _, m := range maintainers {
+			_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
+		}
+
+		files = append(files, gitprovider.CommitFile{
 			Path:    gitprovider.StringVar("CODEOWNERS"),
 			Content: gitprovider.StringVar(content.String()),
-		},
+		})
 	}
 
-	commit, err := repo.Commits().Create(ctx, "main", "adding CODEOWNERS", files)
+	files = append(files, gitprovider.CommitFile{
+		Path:    gitprovider.StringVar("generators/.keep"),
+		Content: gitprovider.StringVar(""),
+	}, gitprovider.CommitFile{
+		Path:    gitprovider.StringVar("products/.keep"),
+		Content: gitprovider.StringVar(""),
+	}, gitprovider.CommitFile{
+		Path:    gitprovider.StringVar("subscriptions/.keep"),
+		Content: gitprovider.StringVar(""),
+	}, gitprovider.CommitFile{
+		Path:    gitprovider.StringVar("targets/.keep"),
+		Content: gitprovider.StringVar(""),
+	})
+
+	commit, err := repo.Commits().Create(ctx, "main", "creating initial project structure", files)
 	if err != nil {
-		return fmt.Errorf("failed to create CODEOWNERS file: %w", err)
+		return fmt.Errorf("failed to create project structure: %w", err)
 	}
 
-	logger.Info("successfully added CODEOWNERS", "url", commit.Get().URL)
+	logger.Info("successfully created initial project structure", "url", commit.Get().URL)
 
 	return nil
 }
