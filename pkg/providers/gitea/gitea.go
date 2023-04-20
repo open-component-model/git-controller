@@ -91,6 +91,8 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 		return fmt.Errorf("failed to create repositroy: %w", err)
 	}
 
+	f := &fileCommitter{}
+
 	if len(obj.Spec.Maintainers) != 0 {
 		var content []byte
 		buffer := bytes.NewBuffer(content)
@@ -101,24 +103,44 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 
 		encoded := base64.StdEncoding.EncodeToString(buffer.Bytes())
 
-		_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, "CODEOWNERS", gitea.CreateFileOptions{
-			FileOptions: gitea.FileOptions{
-				Message:    "Adding CODEOWNERS file.",
-				BranchName: "main",
-			},
-			Content: encoded,
-		})
+		f.commitFile(client, obj, "CODEOWNERS", encoded)
+	}
 
-		if err != nil {
-			if _, derr := client.DeleteRepo(obj.Spec.Owner, obj.Spec.RepositoryName); derr != nil {
-				err = errors.Join(err, derr)
-			}
+	f.commitFile(client, obj, "generators/.keep", "")
+	f.commitFile(client, obj, "products/.keep", "")
+	f.commitFile(client, obj, "subscriptions/.keep", "")
+	f.commitFile(client, obj, "targets/.keep", "")
 
-			return fmt.Errorf("failed to add CODEOWNERS file: %w", err)
-		}
+	if f.err != nil {
+		return fmt.Errorf("failed to set up project folder structure: %w", f.err)
 	}
 
 	return nil
+}
+
+type fileCommitter struct {
+	err error
+}
+
+func (f *fileCommitter) commitFile(client *gitea.Client, obj mpasv1alpha1.Repository, path, content string) {
+	if f.err != nil {
+		return
+	}
+
+	_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, path, gitea.CreateFileOptions{
+		FileOptions: gitea.FileOptions{
+			Message:    fmt.Sprintf("Adding '%s' file.", path),
+			BranchName: obj.Spec.DefaultBranch,
+		},
+		Content: content,
+	})
+	if err != nil {
+		if _, derr := client.DeleteRepo(obj.Spec.Owner, obj.Spec.RepositoryName); derr != nil {
+			err = errors.Join(err, derr)
+		}
+
+		f.err = fmt.Errorf("failed to add file '%s' file: %w", path, err)
+	}
 }
 
 func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
