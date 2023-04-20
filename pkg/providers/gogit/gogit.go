@@ -35,7 +35,7 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		RepositoryName: spec.RepositoryName,
 	}
 	info := gitprovider.RepositoryInfo{
-		DefaultBranch: gitprovider.StringVar("main"),
+		DefaultBranch: gitprovider.StringVar(spec.DefaultBranch),
 		Visibility:    &visibility,
 	}
 

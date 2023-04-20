@@ -40,6 +40,9 @@ type RepositorySpec struct {
 	Credentials Credentials `json:"credentials"`
 
 	//+optional
+	//+kubebuilder:default:=main
+	DefaultBranch string `json:"defaultBranch,omitempty"`
+	//+optional
 	Interval metav1.Duration `json:"interval,omitempty"`
 	//+optional
 	//+kubebuilder:default:=private

@@ -52,6 +52,9 @@ spec:
                 required:
                 - secretRef
                 type: object
+              defaultBranch:
+                default: main
+                type: string
               domain:
                 type: string
               existingRepositoryPolicy:

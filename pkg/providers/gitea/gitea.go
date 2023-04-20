@@ -130,7 +130,7 @@ func (f *fileCommitter) commitFile(client *gitea.Client, obj mpasv1alpha1.Reposi
 	_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, path, gitea.CreateFileOptions{
 		FileOptions: gitea.FileOptions{
 			Message:    fmt.Sprintf("Adding '%s' file.", path),
-			BranchName: "main",
+			BranchName: obj.Spec.DefaultBranch,
 		},
 		Content: content,
 	})
