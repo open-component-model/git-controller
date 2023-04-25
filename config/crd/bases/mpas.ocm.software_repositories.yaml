@@ -82,9 +82,14 @@ spec:
                 type: string
               visibility:
                 default: private
+                enum:
+                - public
+                - private
+                - internal
                 type: string
             required:
             - credentials
+            - isOrganization
             - owner
             - provider
             - repositoryName
