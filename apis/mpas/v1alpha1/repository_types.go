@@ -45,10 +45,11 @@ type RepositorySpec struct {
 	//+optional
 	Interval metav1.Duration `json:"interval,omitempty"`
 	//+optional
+	//+kubebuilder:validation:Enum=public;private;internal
 	//+kubebuilder:default:=private
 	Visibility string `json:"visibility,omitempty"`
 	//+kubebuilder:default:=true
-	IsOrganization bool `json:"isOrganization,omitempty"`
+	IsOrganization bool `json:"isOrganization"`
 	//+optional
 	Domain string `json:"domain,omitempty"`
 	//+optional
