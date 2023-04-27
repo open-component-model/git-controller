@@ -51,16 +51,11 @@ type SyncReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var (
-		result ctrl.Result
-		retErr error
-	)
-
+func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	log := log.FromContext(ctx)
 
 	obj := &v1alpha1.Sync{}
-	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -70,12 +65,12 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// The replication controller doesn't need a shouldReconcile, because it should always reconcile,
 	// that is its purpose.
-	patchHelper, err := patch.NewHelper(obj, r.Client)
+	var patchHelper *patch.Helper
+	patchHelper, err = patch.NewHelper(obj, r.Client)
 	if err != nil {
-		retErr = errors.Join(retErr, err)
 		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.PatchFailedReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, fmt.Errorf("failed to create patch helper: %w", err)
 	}
 
 	// Always attempt to patch the object and status after each reconciliation.
@@ -91,13 +86,13 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		// Check if it's a successful reconciliation.
 		// We don't set Requeue in case of error, so we can safely check for Requeue.
-		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && retErr == nil {
+		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && err == nil {
 			// Remove the reconciling condition if it's set.
 			conditions.Delete(obj, meta.ReconcilingCondition)
 
 			// Set the return err as the ready failure message if the resource is not ready, but also not reconciling or stalled.
 			if ready := conditions.Get(obj, meta.ReadyCondition); ready != nil && ready.Status == metav1.ConditionFalse && !conditions.IsStalled(obj) {
-				retErr = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
+				err = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
 			}
 		}
 
@@ -112,7 +107,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		// If not reconciling or stalled than mark Ready=True
 		if !conditions.IsReconciling(obj) &&
 			!conditions.IsStalled(obj) &&
-			retErr == nil {
+			err == nil {
 			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
 		}
 
@@ -122,8 +117,8 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 
 		// Update the object.
-		if err := patchHelper.Patch(ctx, obj); err != nil {
-			retErr = errors.Join(retErr, err)
+		if perr := patchHelper.Patch(ctx, obj); perr != nil {
+			err = errors.Join(err, perr)
 		}
 	}()
 
@@ -134,40 +129,40 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	snapshot := &ocmv1.Snapshot{}
-	if err := r.Get(ctx, types.NamespacedName{
+	if err = r.Get(ctx, types.NamespacedName{
 		Namespace: obj.Namespace,
 		Name:      obj.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
-		retErr = fmt.Errorf("failed to find snapshot: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.SnapshotGetFailedReason, retErr.Error())
+		err = fmt.Errorf("failed to find snapshot: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.SnapshotGetFailedReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, err
 	}
 
 	log.V(4).Info("found target snapshot")
 
 	repository := &mpasv1alpha1.Repository{}
-	if err := r.Get(ctx, types.NamespacedName{
+	if err = r.Get(ctx, types.NamespacedName{
 		Namespace: obj.Namespace,
 		Name:      obj.Spec.RepositoryRef.Name,
 	}, repository); err != nil {
-		retErr = fmt.Errorf("failed to find repository: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.RepositoryGetFailedReason, retErr.Error())
+		err = fmt.Errorf("failed to find repository: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.RepositoryGetFailedReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, err
 	}
 
 	log.V(4).Info("found target repository")
 
 	authSecret := &corev1.Secret{}
-	if err := r.Get(ctx, types.NamespacedName{
+	if err = r.Get(ctx, types.NamespacedName{
 		Namespace: obj.Namespace,
 		Name:      repository.Spec.Credentials.SecretRef.Name,
 	}, authSecret); err != nil {
-		retErr = fmt.Errorf("failed to find authentication secret: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CredentialsNotFoundReason, retErr.Error())
+		err = fmt.Errorf("failed to find authentication secret: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CredentialsNotFoundReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, err
 	}
 
 	log.V(4).Info("found authentication secret")
@@ -176,14 +171,15 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if baseBranch == "" {
 		baseBranch = "main"
 	}
+
 	targetBranch := obj.Spec.CommitTemplate.TargetBranch
 	if targetBranch == "" && obj.Spec.AutomaticPullRequestCreation {
 		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
 	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
-		retErr = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, retErr.Error())
+		err = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, err
 	}
 
 	log.Info("preparing to push snapshot content", "base", baseBranch, "target", targetBranch)
@@ -203,12 +199,13 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	r.parseAuthSecret(authSecret, opts)
 
-	digest, err := r.Git.Push(ctx, opts)
+	var digest string
+	digest, err = r.Git.Push(ctx, opts)
 	if err != nil {
-		retErr = fmt.Errorf("failed to push to git repository: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, retErr.Error())
+		err = fmt.Errorf("failed to push to git repository: %w", err)
+		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, err.Error())
 
-		return ctrl.Result{}, retErr
+		return ctrl.Result{}, err
 	}
 
 	log.Info("target content pushed with digest", "base", baseBranch, "target", targetBranch, "digest", digest)
@@ -218,11 +215,11 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if obj.Spec.AutomaticPullRequestCreation {
 		log.Info("automatic pull-request creation is enabled, preparing to create a pull request")
 
-		if err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository); err != nil {
-			retErr = fmt.Errorf("failed to create pull request: %w", err)
-			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, retErr.Error())
+		if err = r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository); err != nil {
+			err = fmt.Errorf("failed to create pull request: %w", err)
+			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, err.Error())
 
-			return ctrl.Result{}, retErr
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -233,7 +230,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	log.Info("successfully reconciled sync object")
 
-	return result, retErr
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -38,12 +38,7 @@ type RepositoryReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var (
-		retErr error
-		result ctrl.Result
-	)
-
+func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	logger := log.FromContext(ctx).WithName("repository")
 	logger.V(4).Info("entering repository loop...")
 
@@ -51,16 +46,16 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return result, nil
+			return ctrl.Result{}, nil
 		}
-		retErr = fmt.Errorf("failed to get component object: %w", err)
-		return result, retErr
+
+		return ctrl.Result{}, fmt.Errorf("failed to get component object: %w", err)
 	}
 
-	patchHelper, err := patch.NewHelper(obj, r.Client)
+	var patchHelper *patch.Helper
+	patchHelper, err = patch.NewHelper(obj, r.Client)
 	if err != nil {
-		retErr = errors.Join(retErr, err)
-		return result, retErr
+		return ctrl.Result{}, fmt.Errorf("failed to create patch helper: %w", err)
 	}
 
 	// Always attempt to patch the object and status after each reconciliation.
@@ -76,13 +71,13 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 		// Check if it's a successful reconciliation.
 		// We don't set Requeue in case of error, so we can safely check for Requeue.
-		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && retErr == nil {
+		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && err == nil {
 			// Remove the reconciling condition if it's set.
 			conditions.Delete(obj, meta.ReconcilingCondition)
 
 			// Set the return err as the ready failure message if the resource is not ready, but also not reconciling or stalled.
 			if ready := conditions.Get(obj, meta.ReadyCondition); ready != nil && ready.Status == metav1.ConditionFalse && !conditions.IsStalled(obj) {
-				retErr = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
+				err = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
 			}
 		}
 
@@ -97,7 +92,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		// If not reconciling or stalled than mark Ready=True
 		if !conditions.IsReconciling(obj) &&
 			!conditions.IsStalled(obj) &&
-			retErr == nil {
+			err == nil {
 			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
 		}
 
@@ -107,8 +102,8 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 
 		// Update the object.
-		if err := patchHelper.Patch(ctx, obj); err != nil {
-			retErr = errors.Join(retErr, err)
+		if perr := patchHelper.Patch(ctx, obj); perr != nil {
+			err = errors.Join(err, perr)
 		}
 	}()
 
@@ -117,8 +112,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// block at the very end.
 	conditions.Delete(obj, meta.ReadyCondition)
 
-	result, retErr = r.reconcile(ctx, obj)
-	return result, retErr
+	return r.reconcile(ctx, obj)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -131,6 +125,7 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) (ctrl.Result, error) {
 	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
+
 		return ctrl.Result{}, fmt.Errorf("failed to create repository: %w", err)
 	}
 
