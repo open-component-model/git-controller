@@ -58,6 +58,15 @@ type RepositorySpec struct {
 	//+kubebuilder:default:=adopt
 	//+kubebuilder:validation:Enum=adopt;fail
 	ExistingRepositoryPolicy ExistingRepositoryPolicy `json:"existingRepositoryPolicy,omitempty"`
+	//+optional
+	CommitTemplate *CommitTemplate `json:"commitTemplate,omitempty"`
+}
+
+// CommitTemplate defines the commit template to use when automated commits are made.
+type CommitTemplate struct {
+	Email   string `json:"email"`
+	Message string `json:"message"`
+	Name    string `json:"name"`
 }
 
 // RepositoryStatus defines the observed state of Repository
