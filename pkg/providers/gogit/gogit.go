@@ -18,10 +18,10 @@ import (
 )
 
 // CreateOrganizationRepository creates a repository for an authenticated organization.
-func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, domain string, spec mpasv1alpha1.RepositorySpec) error {
+func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, domain string, obj mpasv1alpha1.Repository) error {
 	logger := log.FromContext(ctx)
 
-	visibility := gitprovider.RepositoryVisibility(spec.Visibility)
+	visibility := gitprovider.RepositoryVisibility(obj.Spec.Visibility)
 
 	if err := gitprovider.ValidateRepositoryVisibility(visibility); err != nil {
 		return fmt.Errorf("failed to validate visibility: %w", err)
@@ -30,12 +30,12 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 	ref := gitprovider.OrgRepositoryRef{
 		OrganizationRef: gitprovider.OrganizationRef{
 			Domain:       domain,
-			Organization: spec.Owner,
+			Organization: obj.Spec.Owner,
 		},
-		RepositoryName: spec.RepositoryName,
+		RepositoryName: obj.GetName(),
 	}
 	info := gitprovider.RepositoryInfo{
-		DefaultBranch: gitprovider.StringVar(spec.DefaultBranch),
+		DefaultBranch: gitprovider.StringVar(obj.Spec.DefaultBranch),
 		Visibility:    &visibility,
 	}
 
@@ -44,14 +44,14 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		return fmt.Errorf("failed to create _create_ options for repository: %w", err)
 	}
 
-	switch spec.ExistingRepositoryPolicy {
+	switch obj.Spec.ExistingRepositoryPolicy {
 	case mpasv1alpha1.ExistingRepositoryPolicyFail:
 		repo, err := gc.OrgRepositories().Create(ctx, ref, info, &createOpts)
 		if err != nil {
 			return fmt.Errorf("failed to create repository: %w", err)
 		}
 
-		if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
+		if err := setupProjectStructure(ctx, repo, obj.Spec.Maintainers); err != nil {
 			if cerr := repo.Delete(ctx); cerr != nil {
 				err = errors.Join(err, cerr)
 			}
@@ -59,7 +59,7 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 			return fmt.Errorf("failed to create initial project structure: %w", err)
 		}
 
-		logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
+		logger.Info("successfully created organization repository", "domain", domain, "repository", obj.GetName())
 	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
 		repo, created, err := gc.OrgRepositories().Reconcile(ctx, ref, info, &createOpts)
 		if err != nil {
@@ -67,9 +67,9 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 		}
 
 		if !created {
-			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
+			logger.Info("using existing repository", "domain", domain, "repository", obj.GetName())
 		} else {
-			if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
+			if err := setupProjectStructure(ctx, repo, obj.Spec.Maintainers); err != nil {
 				if cerr := repo.Delete(ctx); cerr != nil {
 					err = errors.Join(err, cerr)
 				}
@@ -77,20 +77,20 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 				return fmt.Errorf("failed to create initial project structure: %w", err)
 			}
 
-			logger.Info("successfully created organization repository", "domain", domain, "repository", spec.RepositoryName)
+			logger.Info("successfully created organization repository", "domain", domain, "repository", obj.GetName())
 		}
 	default:
-		return fmt.Errorf("unknown repository policy '%s'", spec.ExistingRepositoryPolicy)
+		return fmt.Errorf("unknown repository policy '%s'", obj.Spec.ExistingRepositoryPolicy)
 	}
 
 	return nil
 }
 
 // CreateUserRepository creates a repository for an authenticated user.
-func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain string, spec mpasv1alpha1.RepositorySpec) error {
+func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain string, obj mpasv1alpha1.Repository) error {
 	logger := log.FromContext(ctx)
 
-	visibility := gitprovider.RepositoryVisibility(spec.Visibility)
+	visibility := gitprovider.RepositoryVisibility(obj.Spec.Visibility)
 
 	if err := gitprovider.ValidateRepositoryVisibility(visibility); err != nil {
 		return fmt.Errorf("failed to validate visibility: %w", err)
@@ -99,9 +99,9 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 	ref := gitprovider.UserRepositoryRef{
 		UserRef: gitprovider.UserRef{
 			Domain:    domain,
-			UserLogin: spec.Owner,
+			UserLogin: obj.Spec.Owner,
 		},
-		RepositoryName: spec.RepositoryName,
+		RepositoryName: obj.GetName(),
 	}
 	info := gitprovider.RepositoryInfo{
 		DefaultBranch: gitprovider.StringVar("main"),
@@ -113,14 +113,14 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		return fmt.Errorf("failed to create _create_ options for repository: %w", err)
 	}
 
-	switch spec.ExistingRepositoryPolicy {
+	switch obj.Spec.ExistingRepositoryPolicy {
 	case mpasv1alpha1.ExistingRepositoryPolicyFail:
 		repo, err := gc.UserRepositories().Create(ctx, ref, info, &createOpts)
 		if err != nil {
 			return fmt.Errorf("failed to create repository: %w", err)
 		}
 
-		if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
+		if err := setupProjectStructure(ctx, repo, obj.Spec.Maintainers); err != nil {
 			if cerr := repo.Delete(ctx); cerr != nil {
 				err = errors.Join(err, cerr)
 			}
@@ -128,7 +128,7 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 			return fmt.Errorf("failed to create initial project structure: %w", err)
 		}
 
-		logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
+		logger.Info("successfully created user repository", "domain", domain, "repository", obj.GetName())
 	case mpasv1alpha1.ExistingRepositoryPolicyAdopt:
 		repo, created, err := gc.UserRepositories().Reconcile(ctx, ref, info, &createOpts)
 		if err != nil {
@@ -136,9 +136,9 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 		}
 
 		if !created {
-			logger.Info("using existing repository", "domain", domain, "repository", spec.RepositoryName)
+			logger.Info("using existing repository", "domain", domain, "repository", obj.GetName())
 		} else {
-			if err := setupProjectStructure(ctx, repo, spec.Maintainers); err != nil {
+			if err := setupProjectStructure(ctx, repo, obj.Spec.Maintainers); err != nil {
 				if cerr := repo.Delete(ctx); cerr != nil {
 					err = errors.Join(err, cerr)
 				}
@@ -146,24 +146,24 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 				return fmt.Errorf("failed to create initial project structure: %w", err)
 			}
 
-			logger.Info("successfully created user repository", "domain", domain, "repository", spec.RepositoryName)
+			logger.Info("successfully created user repository", "domain", domain, "repository", obj.GetName())
 		}
 	default:
-		return fmt.Errorf("unknown repository policy '%s'", spec.ExistingRepositoryPolicy)
+		return fmt.Errorf("unknown repository policy '%s'", obj.Spec.ExistingRepositoryPolicy)
 	}
 
 	return nil
 }
 
 // CreateOrganizationPullRequest creates a pull-request for an organization owned repository.
-func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.RepositorySpec) error {
+func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) error {
 	// find the repository
 	repo, err := gc.OrgRepositories().Get(ctx, gitprovider.OrgRepositoryRef{
 		OrganizationRef: gitprovider.OrganizationRef{
 			Domain:       domain,
-			Organization: repository.Owner,
+			Organization: repository.Spec.Owner,
 		},
-		RepositoryName: repository.RepositoryName,
+		RepositoryName: repository.GetName(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to find organization repository: %w", err)
@@ -193,20 +193,20 @@ func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, d
 	}
 
 	logger := log.FromContext(ctx)
-	logger.Info("created pull request for organization repository", "organization", repository.Owner, "pull-request", pr.Get().Number)
+	logger.Info("created pull request for organization repository", "organization", repository.Spec.Owner, "pull-request", pr.Get().Number)
 
 	return nil
 }
 
 // CreateUserPullRequest creates a pull-request for a user owned repository.
-func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.RepositorySpec) error {
+func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) error {
 	// find the repository
 	repo, err := gc.UserRepositories().Get(ctx, gitprovider.UserRepositoryRef{
 		UserRef: gitprovider.UserRef{
 			Domain:    domain,
-			UserLogin: repository.Owner,
+			UserLogin: repository.Spec.Owner,
 		},
-		RepositoryName: repository.RepositoryName,
+		RepositoryName: repository.GetName(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to find user repository: %w", err)
@@ -236,7 +236,7 @@ func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, b
 	}
 
 	logger := log.FromContext(ctx)
-	logger.Info("created pull request for user repository", "user", repository.Owner, "pull-request", pr.Get().Number)
+	logger.Info("created pull request for user repository", "user", repository.Spec.Owner, "pull-request", pr.Get().Number)
 
 	return nil
 }

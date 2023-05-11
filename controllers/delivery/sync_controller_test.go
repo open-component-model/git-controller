@@ -44,9 +44,8 @@ func TestSyncReconciler(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: mpasv1alpha1.RepositorySpec{
-			Provider:       "github",
-			Owner:          "Skarlso",
-			RepositoryName: "test",
+			Provider: "github",
+			Owner:    "Skarlso",
 			Credentials: mpasv1alpha1.Credentials{
 				SecretRef: v1.LocalObjectReference{
 					Name: secret.Name,
@@ -178,9 +177,8 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: mpasv1alpha1.RepositorySpec{
-			Provider:       "github",
-			Owner:          "Skarlso",
-			RepositoryName: "test",
+			Provider: "github",
+			Owner:    "Skarlso",
 			Credentials: mpasv1alpha1.Credentials{
 				SecretRef: v1.LocalObjectReference{
 					Name: secret.Name,

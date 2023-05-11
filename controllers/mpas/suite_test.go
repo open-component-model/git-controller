@@ -58,9 +58,8 @@ var (
 			Namespace: "default",
 		},
 		Spec: mpasv1alpha1.RepositorySpec{
-			Provider:       "github",
-			Owner:          "e2e-tester",
-			RepositoryName: "test-repository",
+			Provider: "github",
+			Owner:    "e2e-tester",
 			Credentials: mpasv1alpha1.Credentials{
 				SecretRef: corev1.LocalObjectReference{
 					Name: "repository-creds",

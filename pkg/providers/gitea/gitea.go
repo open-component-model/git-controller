@@ -81,7 +81,7 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 	}
 
 	if _, _, err := client.CreateRepo(gitea.CreateRepoOption{
-		Name:          obj.Spec.RepositoryName,
+		Name:          obj.GetName(),
 		Description:   "Created by git-controller",
 		Private:       private,
 		AutoInit:      true,
@@ -127,7 +127,7 @@ func (f *fileCommitter) commitFile(client *gitea.Client, obj mpasv1alpha1.Reposi
 		return
 	}
 
-	_, _, err := client.CreateFile(obj.Spec.Owner, obj.Spec.RepositoryName, path, gitea.CreateFileOptions{
+	_, _, err := client.CreateFile(obj.Spec.Owner, obj.GetName(), path, gitea.CreateFileOptions{
 		FileOptions: gitea.FileOptions{
 			Message:    fmt.Sprintf("Adding '%s' file.", path),
 			BranchName: obj.Spec.DefaultBranch,
@@ -135,7 +135,7 @@ func (f *fileCommitter) commitFile(client *gitea.Client, obj mpasv1alpha1.Reposi
 		Content: content,
 	})
 	if err != nil {
-		if _, derr := client.DeleteRepo(obj.Spec.Owner, obj.Spec.RepositoryName); derr != nil {
+		if _, derr := client.DeleteRepo(obj.Spec.Owner, obj.GetName()); derr != nil {
 			err = errors.Join(err, derr)
 		}
 
@@ -193,7 +193,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		description = sync.Spec.PullRequestTemplate.Description
 	}
 
-	if _, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.Spec.RepositoryName, gitea.CreatePullRequestOption{
+	if _, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.GetName(), gitea.CreatePullRequestOption{
 		Head:  branch,
 		Base:  base,
 		Title: title,
