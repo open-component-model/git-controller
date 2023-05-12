@@ -67,10 +67,10 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 	}
 
 	if obj.Spec.IsOrganization {
-		return gogit.CreateOrganizationRepository(ctx, gc, domain, obj.Spec)
+		return gogit.CreateOrganizationRepository(ctx, gc, domain, obj)
 	}
 
-	return gogit.CreateUserRepository(ctx, gc, domain, obj.Spec)
+	return gogit.CreateUserRepository(ctx, gc, domain, obj)
 }
 
 // constructAuthenticationOption will take the object and construct an authentication option.
@@ -117,8 +117,8 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 	}
 
 	if repository.Spec.IsOrganization {
-		return gogit.CreateOrganizationPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository.Spec)
+		return gogit.CreateOrganizationPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository)
 	}
 
-	return gogit.CreateUserPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository.Spec)
+	return gogit.CreateUserPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository)
 }

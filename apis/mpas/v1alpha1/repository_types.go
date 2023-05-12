@@ -35,8 +35,6 @@ type RepositorySpec struct {
 	//+required
 	Owner string `json:"owner"`
 	//+required
-	RepositoryName string `json:"repositoryName"`
-	//+required
 	Credentials Credentials `json:"credentials"`
 
 	//+optional
@@ -101,10 +99,10 @@ func (in Repository) GetRequeueAfter() time.Duration {
 func (in Repository) GetRepositoryURL() string {
 	if in.Spec.Domain != "" {
 		if strings.Contains(in.Spec.Domain, "@") {
-			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.Spec.RepositoryName)
+			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 		}
 
-		return fmt.Sprintf("%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.Spec.RepositoryName)
+		return fmt.Sprintf("%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 	}
 
 	domain := ""
@@ -118,7 +116,7 @@ func (in Repository) GetRepositoryURL() string {
 		domain = "gitea.com"
 	}
 
-	return fmt.Sprintf("https://%s/%s/%s", domain, in.Spec.Owner, in.Spec.RepositoryName)
+	return fmt.Sprintf("https://%s/%s/%s", domain, in.Spec.Owner, in.GetName())
 }
 
 //+kubebuilder:object:root=true
