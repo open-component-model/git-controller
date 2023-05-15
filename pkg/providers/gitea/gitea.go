@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	tokenKey      = "token"
+	tokenKey      = "password"
 	providerType  = "gitea"
 	defaultDomain = "gitea.com"
 )

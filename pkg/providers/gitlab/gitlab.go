@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	tokenKey      = "token"
+	tokenKey      = "password"
 	providerType  = "gitlab"
 	defaultDomain = gitlab.DefaultDomain
 )
