@@ -65,7 +65,7 @@ func TestSyncReconciler(t *testing.T) {
 			SnapshotRef: v1.LocalObjectReference{
 				Name: snapshot.Name,
 			},
-			RepositoryRef: v1.LocalObjectReference{
+			RepositoryRef: meta.NamespacedObjectReference{
 				Name: repository.Name,
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{
@@ -117,7 +117,7 @@ func TestSyncReconcilerIsSkippedIfDigestIsAlreadyPresent(t *testing.T) {
 			SnapshotRef: v1.LocalObjectReference{
 				Name: "test",
 			},
-			RepositoryRef: v1.LocalObjectReference{
+			RepositoryRef: meta.NamespacedObjectReference{
 				Name: "test",
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{
@@ -198,7 +198,7 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 			SnapshotRef: v1.LocalObjectReference{
 				Name: snapshot.Name,
 			},
-			RepositoryRef: v1.LocalObjectReference{
+			RepositoryRef: meta.NamespacedObjectReference{
 				Name: repository.Name,
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{

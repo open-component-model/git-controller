@@ -7,6 +7,7 @@ package v1alpha1
 import (
 	"time"
 
+	"github.com/fluxcd/pkg/apis/meta"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,12 +34,12 @@ type PullRequestTemplate struct {
 
 // SyncSpec defines the desired state of Sync
 type SyncSpec struct {
-	SnapshotRef    v1.LocalObjectReference `json:"snapshotRef"`
-	RepositoryRef  v1.LocalObjectReference `json:"repositoryRef"`
-	Interval       metav1.Duration         `json:"interval"`
-	CommitTemplate CommitTemplate          `json:"commitTemplate"`
-	SubPath        string                  `json:"subPath"`
-	Prune          bool                    `json:"prune,omitempty"`
+	SnapshotRef    v1.LocalObjectReference        `json:"snapshotRef"`
+	RepositoryRef  meta.NamespacedObjectReference `json:"repositoryRef"`
+	Interval       metav1.Duration                `json:"interval"`
+	CommitTemplate CommitTemplate                 `json:"commitTemplate"`
+	SubPath        string                         `json:"subPath"`
+	Prune          bool                           `json:"prune,omitempty"`
 
 	//+optional
 	AutomaticPullRequestCreation bool `json:"automaticPullRequestCreation,omitempty"`

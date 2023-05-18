@@ -141,9 +141,14 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 
 	log.V(4).Info("found target snapshot")
 
+	namespace := obj.Spec.RepositoryRef.Namespace
+	if namespace == "" {
+		namespace = obj.Namespace
+	}
+
 	repository := &mpasv1alpha1.Repository{}
 	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: obj.Namespace,
+		Namespace: namespace,
 		Name:      obj.Spec.RepositoryRef.Name,
 	}, repository); err != nil {
 		err = fmt.Errorf("failed to find repository: %w", err)
