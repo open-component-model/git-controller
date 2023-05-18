@@ -161,7 +161,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 
 	authSecret := &corev1.Secret{}
 	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: obj.Namespace,
+		Namespace: repository.Namespace,
 		Name:      repository.Spec.Credentials.SecretRef.Name,
 	}, authSecret); err != nil {
 		err = fmt.Errorf("failed to find authentication secret: %w", err)
