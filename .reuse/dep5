@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: git-controller
 Upstream-Contact: ospo@sap.com
-Source: https://github.com/open-component-model/ocm-controller
+Source: https://github.com/open-component-model/git-controller
 Disclaimer: The code in this project may include calls to APIs ("API Calls") of
  SAP or third-party products or services developed outside of this project
  ("External Products").
