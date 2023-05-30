@@ -62,8 +62,10 @@ func (p *Provider) CreateRepositoryCallArgsForNumber(i int) ([]any, error) {
 	return args, nil
 }
 
+func (p *Provider) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	return nil
+}
+
 func NewProvider() *Provider {
 	return &Provider{}
 }
-
-var _ providers.Provider = &Provider{}

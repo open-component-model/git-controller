@@ -204,3 +204,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	return nil
 }
+
+func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	return providers.NotSupportedError
+}

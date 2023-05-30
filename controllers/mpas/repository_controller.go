@@ -123,11 +123,29 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	logger.Info("creating or adopting repository")
 	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
 		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
 
 		return ctrl.Result{}, fmt.Errorf("failed to create repository: %w", err)
 	}
 
+	logger.Info("updating branch protection rules")
+	if err := r.Provider.CreateBranchProtection(ctx, *obj); err != nil {
+		if errors.Is(err, providers.NotSupportedError) {
+			// ignore and return without branch protection rules.
+			logger.Error(err, fmt.Sprintf("provider %s does not support updating branch protection rules", obj.Spec.Provider))
+
+			return ctrl.Result{}, nil
+		}
+
+		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.UpdatingBranchProtectionFailedReason, err.Error())
+
+		return ctrl.Result{}, fmt.Errorf("failed to update branch protection rules: %w", err)
+	}
+
+	logger.Info("done reconciling repository")
 	return ctrl.Result{}, nil
 }

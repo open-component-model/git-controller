@@ -1,5 +1,6 @@
 # git-controller
-// TODO(user): Add simple overview of use/purpose
+
+[![REUSE status](https://api.reuse.software/badge/github.com/open-component-model/git-controller)](https://api.reuse.software/info/github.com/open-component-model/git-controller)
 
 ## Description
 // TODO(user): An in-depth paragraph about your project and overview of use
@@ -76,19 +77,8 @@ make manifests
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
-## License
+## Licensing
 
-Copyright 2022.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+Copyright 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
+Please see our [LICENSE](LICENSE) for copyright and license information.
+Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/open-component-model/ocm-controller).

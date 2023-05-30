@@ -10,11 +10,11 @@ import (
 
 	"github.com/fluxcd/go-git-providers/gitlab"
 	"github.com/fluxcd/go-git-providers/gitprovider"
-	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg/providers"
 	"github.com/open-component-model/git-controller/pkg/providers/gogit"
@@ -123,4 +123,8 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 	}
 
 	return gogit.CreateUserPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository)
+}
+
+func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	return providers.NotSupportedError
 }
