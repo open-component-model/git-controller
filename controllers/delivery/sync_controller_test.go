@@ -11,6 +11,7 @@ import (
 
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	sourcebeta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -193,6 +194,11 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "git-test",
 			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Name: "whatever",
+				},
+			},
 		},
 		Spec: v1alpha1.SyncSpec{
 			SnapshotRef: v1.LocalObjectReference{
@@ -213,7 +219,12 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 		},
 	}
 
-	client := env.FakeKubeClient(WithObjets(sync, snapshot, secret, repository), WithAddToScheme(ocmv1.AddToScheme), WithAddToScheme(mpasv1alpha1.AddToScheme))
+	client := env.FakeKubeClient(
+		WithObjets(sync, snapshot, secret, repository),
+		WithAddToScheme(ocmv1.AddToScheme),
+		WithAddToScheme(mpasv1alpha1.AddToScheme),
+		WithAddToScheme(sourcebeta2.AddToScheme),
+	)
 	m := &mockGit{
 		digest: "test-digest",
 	}

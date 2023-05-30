@@ -10,20 +10,23 @@ import (
 
 	"github.com/fluxcd/go-git-providers/github"
 	"github.com/fluxcd/go-git-providers/gitprovider"
-	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
+	ggithub "github.com/google/go-github/v52/github"
+	"golang.org/x/oauth2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg/providers"
 	"github.com/open-component-model/git-controller/pkg/providers/gogit"
 )
 
 const (
-	tokenKey      = "password"
-	providerType  = "github"
-	defaultDomain = github.DefaultDomain
+	tokenKey        = "password"
+	providerType    = "github"
+	defaultDomain   = github.DefaultDomain
+	statusCheckName = "mpas/validation-check"
 )
 
 // Client github.
@@ -73,9 +76,44 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 	return gogit.CreateUserRepository(ctx, gc, domain, obj)
 }
 
+func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	token, err := c.retrieveAccessToken(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve token: %w", err)
+	}
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: string(token)})
+	tc := oauth2.NewClient(context.Background(), ts)
+
+	g := ggithub.NewClient(tc)
+
+	if _, _, err := g.Repositories.UpdateBranchProtection(ctx, obj.Spec.Owner, obj.Name, obj.Spec.DefaultBranch, &ggithub.ProtectionRequest{
+		RequiredStatusChecks: &ggithub.RequiredStatusChecks{
+			Strict: true,
+			Checks: []*ggithub.RequiredStatusCheck{
+				{
+					Context: statusCheckName,
+				},
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to update branch protection rules: %w", err)
+	}
+
+	return nil
+}
+
 // constructAuthenticationOption will take the object and construct an authentication option.
 // For now, only token secret is supported, this will be extended in the future.
 func (c *Client) constructAuthenticationOption(ctx context.Context, obj mpasv1alpha1.Repository) (gitprovider.ClientOption, error) {
+	token, err := c.retrieveAccessToken(ctx, obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve token: %w", err)
+	}
+
+	return gitprovider.WithOAuth2Token(string(token)), nil
+}
+
+func (c *Client) retrieveAccessToken(ctx context.Context, obj mpasv1alpha1.Repository) ([]byte, error) {
 	secret := &v1.Secret{}
 	if err := c.client.Get(ctx, types.NamespacedName{
 		Name:      obj.Spec.Credentials.SecretRef.Name,
@@ -89,7 +127,7 @@ func (c *Client) constructAuthenticationOption(ctx context.Context, obj mpasv1al
 		return nil, fmt.Errorf("token '%s' not found in secret", tokenKey)
 	}
 
-	return gitprovider.WithOAuth2Token(string(token)), nil
+	return token, nil
 }
 
 func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {

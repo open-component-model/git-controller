@@ -22,4 +22,7 @@ const (
 
 	// CreatePullRequestFailedReason is used when creating a pull request failed.
 	CreatePullRequestFailedReason = "CreatePullRequestFailed"
+
+	// GitRepositoryCreateFailedReason is used when creating a git repository failed.
+	GitRepositoryCreateFailedReason = "GitRepositoryCreateFailed"
 )

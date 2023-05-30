@@ -11,10 +11,11 @@ import (
 	"strings"
 
 	"github.com/fluxcd/go-git-providers/gitprovider"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg/providers"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CreateOrganizationRepository creates a repository for an authenticated organization.
