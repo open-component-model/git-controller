@@ -10,6 +10,7 @@
 package v1alpha1
 
 import (
+	"github.com/fluxcd/pkg/apis/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -132,6 +133,11 @@ func (in *SyncStatus) DeepCopyInto(out *SyncStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.ValuesGitRepositoryRef != nil {
+		in, out := &in.ValuesGitRepositoryRef, &out.ValuesGitRepositoryRef
+		*out = new(meta.NamespacedObjectReference)
+		**out = **in
 	}
 }
 

@@ -58,6 +58,12 @@ type SyncStatus struct {
 	// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
 	// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// +optional
+	ValuesGitRepositoryRef *meta.NamespacedObjectReference `json:"valuesGitRepositoryRef,omitempty"`
+
+	// +optional
+	PullRequestID int `json:"pullRequestID,omitempty"`
 }
 
 // GetConditions returns the conditions of the ComponentVersion.

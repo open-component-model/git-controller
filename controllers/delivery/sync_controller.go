@@ -223,20 +223,26 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	if obj.Spec.AutomaticPullRequestCreation {
 		log.Info("automatic pull-request creation is enabled, preparing to create a pull request")
 
-		if err = r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository); err != nil {
+		id, err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository)
+		if err != nil {
 			err = fmt.Errorf("failed to create pull request: %w", err)
 			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, err.Error())
 
 			return ctrl.Result{}, err
 		}
 
+		obj.Status.PullRequestID = id
+
 		// Create GitRepository to track values file changes.
-		if err := r.createValueFileGitRepository(ctx, *obj, *repository, targetBranch); err != nil {
+		repo, err := r.createValueFileGitRepository(ctx, *obj, *repository, targetBranch)
+		if err != nil {
 			err = fmt.Errorf("failed to create value tracking git repository object: %w", err)
 			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryCreateFailedReason, err.Error())
 
 			return ctrl.Result{}, err
 		}
+
+		obj.Status.ValuesGitRepositoryRef = &repo
 	}
 
 	// Remove any stale Ready condition, most likely False, set above. Its value
@@ -277,10 +283,10 @@ func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *pkg.PushOp
 }
 
 // createValueFileGitRepository creates a GitRepository that tracks changes on a branch.
-func (r *SyncReconciler) createValueFileGitRepository(ctx context.Context, sync v1alpha1.Sync, repository mpasv1alpha1.Repository, branch string) error {
+func (r *SyncReconciler) createValueFileGitRepository(ctx context.Context, sync v1alpha1.Sync, repository mpasv1alpha1.Repository, branch string) (meta.NamespacedObjectReference, error) {
 	owners := sync.GetOwnerReferences()
 	if len(owners) != 1 {
-		return fmt.Errorf("expected exactly one owner, got: %d", len(owners))
+		return meta.NamespacedObjectReference{}, fmt.Errorf("expected exactly one owner, got: %d", len(owners))
 	}
 
 	repo := &sourcebeta2.GitRepository{
@@ -314,8 +320,11 @@ func (r *SyncReconciler) createValueFileGitRepository(ctx context.Context, sync 
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to create git repository: %w", err)
+		return meta.NamespacedObjectReference{}, fmt.Errorf("failed to create git repository: %w", err)
 	}
 
-	return nil
+	return meta.NamespacedObjectReference{
+		Name:      repo.Name,
+		Namespace: repo.Namespace,
+	}, nil
 }

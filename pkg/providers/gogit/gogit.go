@@ -157,7 +157,7 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 }
 
 // CreateOrganizationPullRequest creates a pull-request for an organization owned repository.
-func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) error {
+func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) (int, error) {
 	// find the repository
 	repo, err := gc.OrgRepositories().Get(ctx, gitprovider.OrgRepositoryRef{
 		OrganizationRef: gitprovider.OrganizationRef{
@@ -167,7 +167,7 @@ func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, d
 		RepositoryName: repository.GetName(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find organization repository: %w", err)
+		return -1, fmt.Errorf("failed to find organization repository: %w", err)
 	}
 
 	var (
@@ -190,17 +190,17 @@ func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, d
 
 	pr, err := repo.PullRequests().Create(ctx, title, branch, base, description)
 	if err != nil {
-		return fmt.Errorf("failed to create pull request: %w", err)
+		return -1, fmt.Errorf("failed to create pull request: %w", err)
 	}
 
 	logger := log.FromContext(ctx)
 	logger.Info("created pull request for organization repository", "organization", repository.Spec.Owner, "pull-request", pr.Get().Number)
 
-	return nil
+	return pr.Get().Number, nil
 }
 
 // CreateUserPullRequest creates a pull-request for a user owned repository.
-func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) error {
+func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) (int, error) {
 	// find the repository
 	repo, err := gc.UserRepositories().Get(ctx, gitprovider.UserRepositoryRef{
 		UserRef: gitprovider.UserRef{
@@ -210,7 +210,7 @@ func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, b
 		RepositoryName: repository.GetName(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find user repository: %w", err)
+		return -1, fmt.Errorf("failed to find user repository: %w", err)
 	}
 
 	var (
@@ -233,13 +233,13 @@ func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, b
 
 	pr, err := repo.PullRequests().Create(ctx, title, branch, base, description)
 	if err != nil {
-		return fmt.Errorf("failed to create pull request: %w", err)
+		return -1, fmt.Errorf("failed to create pull request: %w", err)
 	}
 
 	logger := log.FromContext(ctx)
 	logger.Info("created pull request for user repository", "user", repository.Spec.Owner, "pull-request", pr.Get().Number)
 
-	return nil
+	return pr.Get().Number, nil
 }
 
 // Repositories groups together a common functionality of both repository types.

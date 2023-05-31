@@ -130,10 +130,10 @@ func (c *Client) retrieveAccessToken(ctx context.Context, obj mpasv1alpha1.Repos
 	return token, nil
 }
 
-func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) (int, error) {
 	if repository.Spec.Provider != providerType {
 		if c.next == nil {
-			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+			return -1, fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
 		}
 
 		return c.next.CreatePullRequest(ctx, branch, sync, repository)
@@ -141,7 +141,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	authenticationOption, err := c.constructAuthenticationOption(ctx, repository)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	domain := defaultDomain
@@ -151,7 +151,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	gc, err := github.NewClient(authenticationOption, gitprovider.WithDomain(domain))
 	if err != nil {
-		return fmt.Errorf("failed to create github client: %w", err)
+		return -1, fmt.Errorf("failed to create github client: %w", err)
 	}
 
 	if repository.Spec.IsOrganization {
