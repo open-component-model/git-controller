@@ -13,17 +13,14 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
-	sourcebeta2 "github.com/fluxcd/source-controller/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -232,17 +229,6 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		}
 
 		obj.Status.PullRequestID = id
-
-		// Create GitRepository to track values file changes.
-		repo, err := r.createValueFileGitRepository(ctx, *obj, *repository, targetBranch)
-		if err != nil {
-			err = fmt.Errorf("failed to create value tracking git repository object: %w", err)
-			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryCreateFailedReason, err.Error())
-
-			return ctrl.Result{}, err
-		}
-
-		obj.Status.ValuesGitRepositoryRef = &repo
 	}
 
 	// Remove any stale Ready condition, most likely False, set above. Its value
@@ -280,51 +266,4 @@ func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *pkg.PushOp
 			Password: string(secret.Data["password"]),
 		},
 	}
-}
-
-// createValueFileGitRepository creates a GitRepository that tracks changes on a branch.
-func (r *SyncReconciler) createValueFileGitRepository(ctx context.Context, sync v1alpha1.Sync, repository mpasv1alpha1.Repository, branch string) (meta.NamespacedObjectReference, error) {
-	owners := sync.GetOwnerReferences()
-	if len(owners) != 1 {
-		return meta.NamespacedObjectReference{}, fmt.Errorf("expected exactly one owner, got: %d", len(owners))
-	}
-
-	repo := &sourcebeta2.GitRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repository.Name + "values-repo",
-			Namespace: repository.Namespace,
-		},
-		Spec: sourcebeta2.GitRepositorySpec{
-			URL: repository.GetRepositoryURL(),
-			SecretRef: &meta.LocalObjectReference{
-				Name: repository.Spec.Credentials.SecretRef.Name,
-			},
-			Interval: metav1.Duration{Duration: 5 * time.Second},
-			Reference: &sourcebeta2.GitRepositoryRef{
-				Branch: branch,
-			},
-			Ignore: pointer.String(fmt.Sprintf(`# exclude all
-/*
-# include values.yaml
-!./products/%s/values.yaml
-`, owners[0].Name)),
-		},
-	}
-
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, repo, func() error {
-		if repo.ObjectMeta.CreationTimestamp.IsZero() {
-			if err := controllerutil.SetOwnerReference(&repository, repo, r.Scheme); err != nil {
-				return fmt.Errorf("failed to set owner to git repository object: %w", err)
-			}
-		}
-
-		return nil
-	}); err != nil {
-		return meta.NamespacedObjectReference{}, fmt.Errorf("failed to create git repository: %w", err)
-	}
-
-	return meta.NamespacedObjectReference{
-		Name:      repo.Name,
-		Namespace: repo.Namespace,
-	}, nil
 }

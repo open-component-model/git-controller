@@ -60,9 +60,6 @@ type SyncStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
-	ValuesGitRepositoryRef *meta.NamespacedObjectReference `json:"valuesGitRepositoryRef,omitempty"`
-
-	// +optional
 	PullRequestID int `json:"pullRequestID,omitempty"`
 }
 
