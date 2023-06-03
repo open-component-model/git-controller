@@ -191,7 +191,7 @@ func (c *Client) createCheckRun(ctx context.Context, repository mpasv1alpha1.Rep
 	}
 
 	_, _, err = g.Repositories.CreateStatus(ctx, repository.Spec.Owner, repository.Name, *pr.Head.SHA, &ggithub.RepoStatus{
-		State:       ggithub.String("error"),
+		State:       ggithub.String("pending"),
 		Description: ggithub.String("MPAS Validation Check"),
 		Context:     ggithub.String(statusCheckName),
 	})
