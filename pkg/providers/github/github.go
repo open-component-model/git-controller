@@ -130,10 +130,10 @@ func (c *Client) retrieveAccessToken(ctx context.Context, obj mpasv1alpha1.Repos
 	return token, nil
 }
 
-func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) (int, error) {
 	if repository.Spec.Provider != providerType {
 		if c.next == nil {
-			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+			return -1, fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
 		}
 
 		return c.next.CreatePullRequest(ctx, branch, sync, repository)
@@ -141,7 +141,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	authenticationOption, err := c.constructAuthenticationOption(ctx, repository)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	domain := defaultDomain
@@ -151,12 +151,54 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	gc, err := github.NewClient(authenticationOption, gitprovider.WithDomain(domain))
 	if err != nil {
-		return fmt.Errorf("failed to create github client: %w", err)
+		return -1, fmt.Errorf("failed to create github client: %w", err)
 	}
+
+	var (
+		id                    int
+		createPullRequestFunc = gogit.CreateUserPullRequest
+	)
 
 	if repository.Spec.IsOrganization {
-		return gogit.CreateOrganizationPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository)
+		createPullRequestFunc = gogit.CreateOrganizationPullRequest
 	}
 
-	return gogit.CreateUserPullRequest(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository)
+	if id, err = createPullRequestFunc(ctx, gc, domain, branch, sync.Spec.PullRequestTemplate, repository); err != nil {
+		return 0, fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	if err := c.createCheckRun(ctx, repository, id); err != nil {
+		return 0, fmt.Errorf("failed to create check run: %w", err)
+	}
+
+	return id, nil
+}
+
+func (c *Client) createCheckRun(ctx context.Context, repository mpasv1alpha1.Repository, prID int) error {
+	token, err := c.retrieveAccessToken(ctx, repository)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve token: %w", err)
+	}
+
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: string(token)})
+	tc := oauth2.NewClient(context.Background(), ts)
+
+	g := ggithub.NewClient(tc)
+	//
+	pr, _, err := g.PullRequests.Get(ctx, repository.Spec.Owner, repository.Name, prID)
+	if err != nil {
+		return fmt.Errorf("failed to find PR: %w", err)
+	}
+
+	_, _, err = g.Repositories.CreateStatus(ctx, repository.Spec.Owner, repository.Name, *pr.Head.SHA, &ggithub.RepoStatus{
+		State:       ggithub.String("pending"),
+		Description: ggithub.String("MPAS Validation Check"),
+		Context:     ggithub.String(statusCheckName),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create status for pr: %w", err)
+	}
+
+	return nil
 }

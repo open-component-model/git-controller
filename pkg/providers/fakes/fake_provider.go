@@ -18,6 +18,7 @@ type Provider struct {
 	CreateRepositoryCalledWith  map[int][]any
 	CreateRepositoryCallCount   int
 	CreatePullRequestErr        error
+	CreatePullRequestID         int
 	CreatePullRequestCalledWith map[int][]any
 	CreatePullRequestCallCount  int
 }
@@ -34,14 +35,14 @@ func (p *Provider) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposi
 	return p.CreateRepositoryErr
 }
 
-func (p *Provider) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+func (p *Provider) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) (int, error) {
 	if p.CreatePullRequestCalledWith == nil {
 		p.CreatePullRequestCalledWith = make(map[int][]any)
 	}
 	p.CreatePullRequestCalledWith[p.CreatePullRequestCallCount] = append(p.CreatePullRequestCalledWith[p.CreatePullRequestCallCount], branch, sync, repository)
 	p.CreatePullRequestCallCount++
 
-	return p.CreatePullRequestErr
+	return p.CreatePullRequestID, p.CreatePullRequestErr
 }
 
 func (p *Provider) CreatePullRequestCallArgsForNumber(i int) ([]any, error) {

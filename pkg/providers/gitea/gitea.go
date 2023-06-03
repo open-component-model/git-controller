@@ -143,10 +143,10 @@ func (f *fileCommitter) commitFile(client *gitea.Client, obj mpasv1alpha1.Reposi
 	}
 }
 
-func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error {
+func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) (int, error) {
 	if repository.Spec.Provider != providerType {
 		if c.next == nil {
-			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+			return -1, fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
 		}
 
 		return c.next.CreatePullRequest(ctx, branch, sync, repository)
@@ -157,12 +157,12 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		Name:      repository.Spec.Credentials.SecretRef.Name,
 		Namespace: repository.Namespace,
 	}, secret); err != nil {
-		return fmt.Errorf("failed to get secret: %w", err)
+		return -1, fmt.Errorf("failed to get secret: %w", err)
 	}
 
 	token, ok := secret.Data[tokenKey]
 	if !ok {
-		return fmt.Errorf("token '%s' not found in secret", tokenKey)
+		return -1, fmt.Errorf("token '%s' not found in secret", tokenKey)
 	}
 
 	domain := defaultDomain
@@ -172,7 +172,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 
 	client, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
 	if err != nil {
-		return fmt.Errorf("failed to create gitea client: %w", err)
+		return -1, fmt.Errorf("failed to create gitea client: %w", err)
 	}
 
 	var (
@@ -193,16 +193,17 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		description = sync.Spec.PullRequestTemplate.Description
 	}
 
-	if _, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.GetName(), gitea.CreatePullRequestOption{
+	pr, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.GetName(), gitea.CreatePullRequestOption{
 		Head:  branch,
 		Base:  base,
 		Title: title,
 		Body:  description,
-	}); err != nil {
-		return fmt.Errorf("failed to create pull request: %w", err)
+	})
+	if err != nil {
+		return -1, fmt.Errorf("failed to create pull request: %w", err)
 	}
 
-	return nil
+	return int(pr.ID), nil
 }
 
 func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {

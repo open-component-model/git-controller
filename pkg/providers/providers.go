@@ -23,6 +23,6 @@ var NotSupportedError = errors.New("functionality not supported by provider")
 // Provider adds the ability to create repositories and pull requests.
 type Provider interface {
 	CreateRepository(ctx context.Context, obj mpasv1alpha1.Repository) error
-	CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) error
+	CreatePullRequest(ctx context.Context, branch string, sync deliveryv1alpha1.Sync, repository mpasv1alpha1.Repository) (int, error)
 	CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error
 }
