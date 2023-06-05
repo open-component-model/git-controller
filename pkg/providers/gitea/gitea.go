@@ -12,13 +12,13 @@ import (
 	"fmt"
 
 	"code.gitea.io/sdk/gitea"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg/providers"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -33,7 +33,7 @@ type Client struct {
 	next   providers.Provider
 }
 
-// NewClient creates a new GitHub client.
+// NewClient creates a new Gitea client.
 func NewClient(client client.Client, next providers.Provider) *Client {
 	return &Client{
 		client: client,
@@ -170,7 +170,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		domain = repository.Spec.Domain
 	}
 
-	client, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
+	gclient, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
 	if err != nil {
 		return -1, fmt.Errorf("failed to create gitea client: %w", err)
 	}
@@ -193,7 +193,7 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		description = sync.Spec.PullRequestTemplate.Description
 	}
 
-	pr, _, err := client.CreatePullRequest(repository.Spec.Owner, repository.GetName(), gitea.CreatePullRequestOption{
+	pr, _, err := gclient.CreatePullRequest(repository.Spec.Owner, repository.GetName(), gitea.CreatePullRequestOption{
 		Head:  branch,
 		Base:  base,
 		Title: title,
@@ -206,6 +206,61 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 	return int(pr.ID), nil
 }
 
-func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
-	return providers.NotSupportedError
+func (c *Client) CreateBranchProtection(ctx context.Context, repository mpasv1alpha1.Repository) error {
+	logger := log.FromContext(ctx)
+
+	logger.Info("using gitea provider to set up branch protection")
+
+	if repository.Spec.Provider != providerType {
+		if c.next == nil {
+			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", repository.Spec.Provider)
+		}
+
+		return c.next.CreateBranchProtection(ctx, repository)
+	}
+
+	secret := &v1.Secret{}
+	if err := c.client.Get(ctx, types.NamespacedName{
+		Name:      repository.Spec.Credentials.SecretRef.Name,
+		Namespace: repository.Namespace,
+	}, secret); err != nil {
+		return fmt.Errorf("failed to get secret: %w", err)
+	}
+
+	token, ok := secret.Data[tokenKey]
+	if !ok {
+		return fmt.Errorf("token '%s' not found in secret", tokenKey)
+	}
+
+	logger.Info("got secret")
+
+	domain := defaultDomain
+	if repository.Spec.Domain != "" {
+		domain = repository.Spec.Domain
+	}
+
+	logger.Info("default domain set", "domain", domain)
+
+	gclient, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
+	if err != nil {
+		return fmt.Errorf("failed to create gitea client: %w", err)
+	}
+
+	defaultBranch := "main"
+	if repository.Spec.DefaultBranch != "" {
+		defaultBranch = repository.Spec.DefaultBranch
+	}
+
+	logger.Info("using default branch", "branch", defaultBranch)
+
+	if _, _, err := gclient.CreateBranchProtection(repository.Spec.Owner, repository.Name, gitea.CreateBranchProtectionOption{
+		BranchName:          defaultBranch,
+		EnablePush:          true,
+		EnableStatusCheck:   true,
+		StatusCheckContexts: []string{deliveryv1alpha1.StatusCheckName},
+	}); err != nil {
+		return fmt.Errorf("failed to create branch protection: %w", err)
+	}
+
+	return nil
 }
