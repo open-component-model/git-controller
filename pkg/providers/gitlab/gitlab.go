@@ -126,5 +126,13 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 }
 
 func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	if obj.Spec.Provider != providerType {
+		if c.next == nil {
+			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", obj.Spec.Provider)
+		}
+
+		return c.next.CreateBranchProtection(ctx, obj)
+	}
+
 	return providers.NotSupportedError
 }

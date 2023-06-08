@@ -23,10 +23,9 @@ import (
 )
 
 const (
-	tokenKey        = "password"
-	providerType    = "github"
-	defaultDomain   = github.DefaultDomain
-	statusCheckName = "mpas/validation-check"
+	tokenKey      = "password"
+	providerType  = "github"
+	defaultDomain = github.DefaultDomain
 )
 
 // Client github.
@@ -77,6 +76,14 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 }
 
 func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Repository) error {
+	if obj.Spec.Provider != providerType {
+		if c.next == nil {
+			return fmt.Errorf("can't handle provider type '%s' and no next provider is configured", obj.Spec.Provider)
+		}
+
+		return c.next.CreateBranchProtection(ctx, obj)
+	}
+
 	token, err := c.retrieveAccessToken(ctx, obj)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve token: %w", err)
@@ -91,7 +98,7 @@ func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Re
 			Strict: true,
 			Checks: []*ggithub.RequiredStatusCheck{
 				{
-					Context: statusCheckName,
+					Context: deliveryv1alpha1.StatusCheckName,
 				},
 			},
 		},
@@ -193,7 +200,7 @@ func (c *Client) createCheckRun(ctx context.Context, repository mpasv1alpha1.Rep
 	_, _, err = g.Repositories.CreateStatus(ctx, repository.Spec.Owner, repository.Name, *pr.Head.SHA, &ggithub.RepoStatus{
 		State:       ggithub.String("pending"),
 		Description: ggithub.String("MPAS Validation Check"),
-		Context:     ggithub.String(statusCheckName),
+		Context:     ggithub.String(deliveryv1alpha1.StatusCheckName),
 	})
 
 	if err != nil {
