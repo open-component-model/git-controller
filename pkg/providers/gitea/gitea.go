@@ -219,6 +219,7 @@ func (c *Client) CreateBranchProtection(ctx context.Context, repository mpasv1al
 		return c.next.CreateBranchProtection(ctx, repository)
 	}
 
+    //TODO: use safe auth strategy post MVP
 	secret := &v1.Secret{}
 	if err := c.client.Get(ctx, types.NamespacedName{
 		Name:      repository.Spec.Credentials.SecretRef.Name,
