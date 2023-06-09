@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/containers/image/v5 v5.21.1
 	github.com/fluxcd/go-git-providers v0.15.0
+	github.com/fluxcd/pkg/apis/event v0.3.0
 	github.com/fluxcd/pkg/apis/meta v0.19.0
 	github.com/fluxcd/pkg/runtime v0.27.0
 	github.com/fluxcd/source-controller/api v0.33.0

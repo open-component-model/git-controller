@@ -479,6 +479,8 @@ github.com/fluxcd/go-git-providers v0.15.0 h1:WuBw+CcmXi7UhSf8mFNB6tbGelS0kVlgI9
 github.com/fluxcd/go-git-providers v0.15.0/go.mod h1:SgShGfc2rA5Gi7N65CBjMOIolarDZzZCMzEHOoY3P0I=
 github.com/fluxcd/pkg/apis/acl v0.1.0 h1:EoAl377hDQYL3WqanWCdifauXqXbMyFuK82NnX6pH4Q=
 github.com/fluxcd/pkg/apis/acl v0.1.0/go.mod h1:zfEZzz169Oap034EsDhmCAGgnWlcWmIObZjYMusoXS8=
+github.com/fluxcd/pkg/apis/event v0.3.0 h1:B+IXmfSniUGfoczheNAH0YULgS+ejxMl58RyWlvLa1c=
+github.com/fluxcd/pkg/apis/event v0.3.0/go.mod h1:xYOOlf+9gCBSYcs93N2XAbJvSVwuVBDBUzqhR+cAo7M=
 github.com/fluxcd/pkg/apis/meta v0.19.0 h1:CX75e/eaRWZDTzNdMSWomY1InlssLKcS8GQDSg/aopI=
 github.com/fluxcd/pkg/apis/meta v0.19.0/go.mod h1:7b6prDPsViyAzoY7eRfSPS0/MbXpGGsOMvRq2QrTKa4=
 github.com/fluxcd/pkg/runtime v0.27.0 h1:zVA95Z0KvNjvZxEZhvIbJyJIwtaiv1aVttHZ4YB/FzY=

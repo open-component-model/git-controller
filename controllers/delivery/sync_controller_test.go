@@ -17,6 +17,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
@@ -84,10 +85,16 @@ func TestSyncReconciler(t *testing.T) {
 	m := &mockGit{
 		digest: "test-digest",
 	}
-	gsr := SyncReconciler{
-		Client: client,
-		Scheme: env.scheme,
-		Git:    m,
+	recorder := &record.FakeRecorder{
+		Events:        make(chan string, 32),
+		IncludeObject: true,
+	}
+
+	gsr := &SyncReconciler{
+		Client:        client,
+		Scheme:        env.scheme,
+		Git:           m,
+		EventRecorder: recorder,
 	}
 
 	_, err := gsr.Reconcile(context.Background(), ctrl.Request{
@@ -141,11 +148,17 @@ func TestSyncReconcilerIsSkippedIfDigestIsAlreadyPresent(t *testing.T) {
 		digest: "test-digest",
 	}
 	fakeProvider := fakes.NewProvider()
-	gsr := SyncReconciler{
-		Client:   client,
-		Scheme:   env.scheme,
-		Git:      m,
-		Provider: fakeProvider,
+	recorder := &record.FakeRecorder{
+		Events:        make(chan string, 32),
+		IncludeObject: true,
+	}
+
+	gsr := &SyncReconciler{
+		Client:        client,
+		Scheme:        env.scheme,
+		Git:           m,
+		Provider:      fakeProvider,
+		EventRecorder: recorder,
 	}
 
 	_, err := gsr.Reconcile(context.Background(), ctrl.Request{
@@ -229,12 +242,17 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 		digest: "test-digest",
 	}
 	fakeProvider := fakes.NewProvider()
+	recorder := &record.FakeRecorder{
+		Events:        make(chan string, 32),
+		IncludeObject: true,
+	}
 
 	gsr := SyncReconciler{
-		Client:   client,
-		Scheme:   env.scheme,
-		Git:      m,
-		Provider: fakeProvider,
+		Client:        client,
+		Scheme:        env.scheme,
+		Git:           m,
+		Provider:      fakeProvider,
+		EventRecorder: recorder,
 	}
 
 	_, err := gsr.Reconcile(context.Background(), ctrl.Request{
