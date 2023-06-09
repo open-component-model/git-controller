@@ -10,14 +10,15 @@ import (
 	"fmt"
 	"time"
 
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kuberecorder "k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,12 +30,14 @@ import (
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg"
+	"github.com/open-component-model/git-controller/pkg/event"
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
 // SyncReconciler reconciles a Sync object
 type SyncReconciler struct {
 	client.Client
+	kuberecorder.EventRecorder
 	Scheme *runtime.Scheme
 
 	Git      pkg.Git
@@ -51,7 +54,7 @@ type SyncReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
+func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, err error) {
 	log := log.FromContext(ctx)
 
 	obj := &v1alpha1.Sync{}
@@ -59,19 +62,14 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+
 		return ctrl.Result{}, fmt.Errorf("failed to get git sync object: %w", err)
 	}
 	log.V(4).Info("found reconciling object", "sync", obj)
 
 	// The replication controller doesn't need a shouldReconcile, because it should always reconcile,
 	// that is its purpose.
-	var patchHelper *patch.Helper
-	patchHelper, err = patch.NewHelper(obj, r.Client)
-	if err != nil {
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.PatchFailedReason, err.Error())
-
-		return ctrl.Result{}, fmt.Errorf("failed to create patch helper: %w", err)
-	}
+	patchHelper := patch.NewSerialPatcher(obj, r.Client)
 
 	// Always attempt to patch the object and status after each reconciliation.
 	defer func() {
@@ -80,39 +78,8 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 			return
 		}
 
-		if condition := conditions.Get(obj, meta.StalledCondition); condition != nil && condition.Status == metav1.ConditionTrue {
-			conditions.Delete(obj, meta.ReconcilingCondition)
-		}
-
-		// Check if it's a successful reconciliation.
-		// We don't set Requeue in case of error, so we can safely check for Requeue.
-		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && err == nil {
-			// Remove the reconciling condition if it's set.
-			conditions.Delete(obj, meta.ReconcilingCondition)
-
-			// Set the return err as the ready failure message if the resource is not ready, but also not reconciling or stalled.
-			if ready := conditions.Get(obj, meta.ReadyCondition); ready != nil && ready.Status == metav1.ConditionFalse && !conditions.IsStalled(obj) {
-				err = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
-			}
-		}
-
-		// If still reconciling then reconciliation did not succeed, set to ProgressingWithRetry to
-		// indicate that reconciliation will be retried.
-		if conditions.IsReconciling(obj) {
-			reconciling := conditions.Get(obj, meta.ReconcilingCondition)
-			reconciling.Reason = meta.ProgressingWithRetryReason
-			conditions.Set(obj, reconciling)
-		}
-
-		// If not reconciling or stalled than mark Ready=True
-		if !conditions.IsReconciling(obj) &&
-			!conditions.IsStalled(obj) &&
-			err == nil {
-			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
-		}
-
 		// Set status observed generation option if the component is stalled or ready.
-		if conditions.IsStalled(obj) || conditions.IsReady(obj) {
+		if conditions.IsReady(obj) {
 			obj.Status.ObservedGeneration = obj.Generation
 		}
 
@@ -125,6 +92,9 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	// it's important that this happens here so any residual status condition can be overwritten / set.
 	if obj.Status.Digest != "" {
 		log.Info("Sync object already synced; status contains digest information", "digest", obj.Status.Digest)
+		event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, fmt.Sprintf("sync object already synced with digest %s", obj.Status.Digest), nil)
+		conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+
 		return ctrl.Result{}, nil
 	}
 
@@ -134,7 +104,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		Name:      obj.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
 		err = fmt.Errorf("failed to find snapshot: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.SnapshotGetFailedReason, err.Error())
+		r.markAndEmitEvent(obj, v1alpha1.SnapshotGetFailedReason, err)
 
 		return ctrl.Result{}, err
 	}
@@ -152,7 +122,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		Name:      obj.Spec.RepositoryRef.Name,
 	}, repository); err != nil {
 		err = fmt.Errorf("failed to find repository: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.RepositoryGetFailedReason, err.Error())
+		r.markAndEmitEvent(obj, v1alpha1.RepositoryGetFailedReason, err)
 
 		return ctrl.Result{}, err
 	}
@@ -165,7 +135,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		Name:      repository.Spec.Credentials.SecretRef.Name,
 	}, authSecret); err != nil {
 		err = fmt.Errorf("failed to find authentication secret: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CredentialsNotFoundReason, err.Error())
+		r.markAndEmitEvent(obj, v1alpha1.CredentialsNotFoundReason, err)
 
 		return ctrl.Result{}, err
 	}
@@ -182,7 +152,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
 	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
 		err = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, err.Error())
+		r.markAndEmitEvent(obj, v1alpha1.GitRepositoryPushFailedReason, err)
 
 		return ctrl.Result{}, err
 	}
@@ -208,7 +178,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 	digest, err = r.Git.Push(ctx, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to push to git repository: %w", err)
-		conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.GitRepositoryPushFailedReason, err.Error())
+		r.markAndEmitEvent(obj, v1alpha1.GitRepositoryPushFailedReason, err)
 
 		return ctrl.Result{}, err
 	}
@@ -223,7 +193,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		id, err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository)
 		if err != nil {
 			err = fmt.Errorf("failed to create pull request: %w", err)
-			conditions.MarkFalse(obj, meta.ReadyCondition, v1alpha1.CreatePullRequestFailedReason, err.Error())
+			r.markAndEmitEvent(obj, v1alpha1.CreatePullRequestFailedReason, err)
 
 			return ctrl.Result{}, err
 		}
@@ -231,14 +201,16 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (resul
 		obj.Status.PullRequestID = id
 	}
 
-	// Remove any stale Ready condition, most likely False, set above. Its value
-	// is derived from the overall result of the reconciliation in the deferred
-	// block at the very end.
-	conditions.Delete(obj, meta.ReadyCondition)
-
 	log.Info("successfully reconciled sync object")
+	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *SyncReconciler) markAndEmitEvent(obj *v1alpha1.Sync, reason string, err error) {
+	event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
+	conditions.MarkFalse(obj, meta.ReadyCondition, reason, err.Error())
 }
 
 // SetupWithManager sets up the controller with the Manager.

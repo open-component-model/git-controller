@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
@@ -38,10 +39,16 @@ func TestRepositoryReconciler(t *testing.T) {
 
 	client := env.FakeKubeClient(WithAddToScheme(mpasv1alpha1.AddToScheme), WithObjets(repository, secret), WithAddToScheme(ocmv1.AddToScheme))
 	fakeProvider := fakes.NewProvider()
+	recorder := &record.FakeRecorder{
+		Events:        make(chan string, 32),
+		IncludeObject: true,
+	}
+
 	controller := &RepositoryReconciler{
-		Client:   client,
-		Scheme:   env.scheme,
-		Provider: fakeProvider,
+		Client:        client,
+		Scheme:        env.scheme,
+		Provider:      fakeProvider,
+		EventRecorder: recorder,
 	}
 
 	_, err := controller.Reconcile(context.Background(), ctrl.Request{

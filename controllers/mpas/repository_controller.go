@@ -9,12 +9,13 @@ import (
 	"errors"
 	"fmt"
 
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kuberecorder "k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,12 +23,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
+	"github.com/open-component-model/git-controller/pkg/event"
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
 // RepositoryReconciler reconciles a Repository object
 type RepositoryReconciler struct {
 	client.Client
+	kuberecorder.EventRecorder
 	Scheme   *runtime.Scheme
 	Provider providers.Provider
 }
@@ -52,11 +55,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, fmt.Errorf("failed to get component object: %w", err)
 	}
 
-	var patchHelper *patch.Helper
-	patchHelper, err = patch.NewHelper(obj, r.Client)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create patch helper: %w", err)
-	}
+	patchHelper := patch.NewSerialPatcher(obj, r.Client)
 
 	// Always attempt to patch the object and status after each reconciliation.
 	defer func() {
@@ -65,39 +64,8 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return
 		}
 
-		if condition := conditions.Get(obj, meta.StalledCondition); condition != nil && condition.Status == metav1.ConditionTrue {
-			conditions.Delete(obj, meta.ReconcilingCondition)
-		}
-
-		// Check if it's a successful reconciliation.
-		// We don't set Requeue in case of error, so we can safely check for Requeue.
-		if result.RequeueAfter == obj.GetRequeueAfter() && !result.Requeue && err == nil {
-			// Remove the reconciling condition if it's set.
-			conditions.Delete(obj, meta.ReconcilingCondition)
-
-			// Set the return err as the ready failure message if the resource is not ready, but also not reconciling or stalled.
-			if ready := conditions.Get(obj, meta.ReadyCondition); ready != nil && ready.Status == metav1.ConditionFalse && !conditions.IsStalled(obj) {
-				err = errors.New(conditions.GetMessage(obj, meta.ReadyCondition))
-			}
-		}
-
-		// If still reconciling then reconciliation did not succeed, set to ProgressingWithRetry to
-		// indicate that reconciliation will be retried.
-		if conditions.IsReconciling(obj) {
-			reconciling := conditions.Get(obj, meta.ReconcilingCondition)
-			reconciling.Reason = meta.ProgressingWithRetryReason
-			conditions.Set(obj, reconciling)
-		}
-
-		// If not reconciling or stalled than mark Ready=True
-		if !conditions.IsReconciling(obj) &&
-			!conditions.IsStalled(obj) &&
-			err == nil {
-			conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
-		}
-
 		// Set status observed generation option if the component is stalled or ready.
-		if conditions.IsStalled(obj) || conditions.IsReady(obj) {
+		if conditions.IsReady(obj) {
 			obj.Status.ObservedGeneration = obj.Generation
 		}
 
@@ -106,11 +74,6 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			err = errors.Join(err, perr)
 		}
 	}()
-
-	// Remove any stale Ready condition, most likely False, set above. Its value
-	// is derived from the overall result of the reconciliation in the deferred
-	// block at the very end.
-	conditions.Delete(obj, meta.ReadyCondition)
 
 	return r.reconcile(ctx, obj)
 }
@@ -127,6 +90,7 @@ func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.
 
 	logger.Info("creating or adopting repository")
 	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
+		event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
 		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
 
 		return ctrl.Result{}, fmt.Errorf("failed to create repository: %w", err)
@@ -142,10 +106,14 @@ func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.
 		}
 
 		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.UpdatingBranchProtectionFailedReason, err.Error())
+		event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
 
 		return ctrl.Result{}, fmt.Errorf("failed to update branch protection rules: %w", err)
 	}
 
 	logger.Info("done reconciling repository")
+	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
+
 	return ctrl.Result{}, nil
 }

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/fluxcd/pkg/runtime/events"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -30,6 +31,8 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
+const controllerName = "git-controller"
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -47,6 +50,7 @@ func main() {
 	var (
 		metricsAddr          string
 		enableLeaderElection bool
+		eventsAddr           string
 		probeAddr            string
 		storagePath          string
 		ociRegistryAddr      string
@@ -55,6 +59,7 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
 	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", ":5000", "The address of the OCI registry.")
+	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -86,20 +91,28 @@ func main() {
 	gitlabProvider := gitlab.NewClient(mgr.GetClient(), giteaProvider)
 	githubProvider := github.NewClient(mgr.GetClient(), gitlabProvider)
 
+	var eventsRecorder *events.Recorder
+	if eventsRecorder, err = events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName); err != nil {
+		setupLog.Error(err, "unable to create event recorder")
+		os.Exit(1)
+	}
+
 	if err = (&delivery.SyncReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Git:      gitClient,
-		Provider: githubProvider,
+		EventRecorder: eventsRecorder,
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		Git:           gitClient,
+		Provider:      githubProvider,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Sync")
 		os.Exit(1)
 	}
 
 	if err = (&mpascontrollers.RepositoryReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Provider: githubProvider,
+		EventRecorder: eventsRecorder,
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		Provider:      githubProvider,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Repository")
 		os.Exit(1)
