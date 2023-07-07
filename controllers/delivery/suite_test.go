@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	ocmmetav1 "github.com/open-component-model/ocm/pkg/contexts/ocm/compdesc/meta/v1"
+
 	ocmv1alpha1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
 
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
@@ -80,7 +82,7 @@ var (
 			Namespace: "default",
 		},
 		Spec: ocmv1alpha1.SnapshotSpec{
-			Identity: ocmv1alpha1.Identity{
+			Identity: ocmmetav1.Identity{
 				ocmv1alpha1.ComponentNameKey:    DefaultComponent.Name,
 				ocmv1alpha1.ComponentVersionKey: "v0.0.1",
 				ocmv1alpha1.ResourceNameKey:     "test-resource",
