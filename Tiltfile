@@ -9,8 +9,8 @@ if str(local("command -v " + kubectl_cmd + " || true", quiet = True)) == "":
 # set defaults
 settings = {
     "root_certificate_secret": {
-        "enable": False,
-        "name": "registry-cert",
+        "enable": True,
+        "name": "registry-certs",
     },
 }
 
