@@ -256,7 +256,9 @@ func setupProjectStructure(ctx context.Context, repo Repositories, maintainers [
 		content := strings.Builder{}
 
 		for _, m := range maintainers {
-			_, _ = content.WriteString(fmt.Sprintf("%s\n", m))
+			if _, err := content.WriteString(fmt.Sprintf("%s\n", m)); err != nil {
+				return fmt.Errorf("failed to write content to buffer: %w", err)
+			}
 		}
 
 		files = append(files, gitprovider.CommitFile{
