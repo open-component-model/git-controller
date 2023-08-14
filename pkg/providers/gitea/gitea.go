@@ -98,7 +98,9 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 		buffer := bytes.NewBuffer(content)
 
 		for _, m := range obj.Spec.Maintainers {
-			buffer.WriteString(m)
+			if _, err := buffer.WriteString(fmt.Sprintf("%s\n", m)); err != nil {
+				return fmt.Errorf("failed to write content to buffer: %w", err)
+			}
 		}
 
 		encoded := base64.StdEncoding.EncodeToString(buffer.Bytes())
