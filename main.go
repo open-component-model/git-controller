@@ -61,7 +61,7 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&storagePath, "storage-path", "/data", "The location which to use for temporary storage. Should be mounted into the pod.")
 	flag.StringVar(&ociRegistryAddr, "oci-registry-addr", ":5000", "The address of the OCI registry.")
-	flag.StringVar(&ociRegistryCertSecretName, "certificate-secret-name", v1alpha1.DefaultRegistryCertificateSecretName, "")
+	flag.StringVar(&ociRegistryCertSecretName, "certificate-secret-name", "ocm-registry-tls-certs", "")
 	flag.StringVar(&ociRegistryNamespace, "oci-registry-namespace", "ocm-system", "The namespace in which the registry is running in.")
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 
