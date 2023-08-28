@@ -6,35 +6,15 @@ kubectl_cmd = "kubectl"
 if str(local("command -v " + kubectl_cmd + " || true", quiet = True)) == "":
     fail("Required command '" + kubectl_cmd + "' not found in PATH")
 
-# set defaults
-settings = {
-    "root_certificate_secret": {
-        "enable": True,
-        "name": "registry-certs",
-    },
-}
-
-# global settings
-tilt_file = "./tilt-settings.yaml" if os.path.exists("./tilt-settings.yaml") else "./tilt-settings.json"
-settings.update(read_yaml(
-    tilt_file,
-    default = {},
-))
-
 # Use kustomize to build the install yaml files
 install = kustomize('config/default')
 
 # Update the root security group. Tilt requires root access to update the
 # running process.
 objects = decode_yaml_stream(install)
-root_certificate = settings.get("root_certificate_secret")
 for o in objects:
     if o.get('kind') == 'Deployment' and o.get('metadata').get('name') == 'git-controller':
         o['spec']['template']['spec']['securityContext']['runAsNonRoot'] = False
-        if root_certificate.get("enable"):
-            print('updating git-controller deployment to add generated certificates')
-            o['spec']['template']['spec']['volumes'] = [{'name': 'root-certificate', 'secret': {'secretName': root_certificate.get("name"), 'items': [{'key': 'caFile', 'path': 'ca.pem'}]}}]
-            o['spec']['template']['spec']['containers'][0]['volumeMounts'] = [{'mountPath': '/certs', 'name': 'root-certificate'}]
         break
 
 updated_install = encode_yaml_stream(objects)
@@ -62,7 +42,6 @@ local_resource(
         "apis",
         "controllers",
         "pkg",
-        "hack/entrypoint.sh",
     ],
 )
 
@@ -72,7 +51,7 @@ local_resource(
 # on _any_ file change. We only want to monitor the binary.
 # If debugging is enabled, we switch to a different docker file using
 # the delve port.
-entrypoint = ['/entrypoint.sh', '/manager']
+entrypoint = ['/manager']
 dockerfile = 'tilt.dockerfile'
 docker_build_with_restart(
     'ghcr.io/open-component-model/git-controller',
@@ -81,10 +60,8 @@ docker_build_with_restart(
     entrypoint = entrypoint,
     only=[
       './bin',
-      './hack/entrypoint.sh',
     ],
     live_update = [
         sync('./bin/manager', '/manager'),
-        sync('./hack/entrypoint.sh', '/entrypoint.sh'),
     ],
 )
