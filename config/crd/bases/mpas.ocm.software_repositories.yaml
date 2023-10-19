@@ -71,6 +71,9 @@ spec:
                 default: main
                 type: string
               domain:
+                description: Domain specifies an optional domain address to be used
+                  instead of the defaults like github.com. Must NOT contain the scheme.
+                pattern: ^\w+(\.|:[0-9]).*$
                 type: string
               existingRepositoryPolicy:
                 default: adopt

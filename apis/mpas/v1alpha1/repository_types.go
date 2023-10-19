@@ -48,7 +48,10 @@ type RepositorySpec struct {
 	Visibility string `json:"visibility,omitempty"`
 	//+kubebuilder:default:=true
 	IsOrganization bool `json:"isOrganization"`
+	// Domain specifies an optional domain address to be used instead of the defaults like github.com.
+	// Must NOT contain the scheme.
 	//+optional
+	//+kubebuilder:validation:Pattern="^\\w+(\\.|:[0-9]).*$"
 	Domain string `json:"domain,omitempty"`
 	//+optional
 	Maintainers []string `json:"maintainers,omitempty"`
@@ -102,7 +105,7 @@ func (in Repository) GetRepositoryURL() string {
 			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 		}
 
-		return fmt.Sprintf("%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
+		return fmt.Sprintf("https://%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 	}
 
 	domain := ""
