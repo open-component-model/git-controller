@@ -53,6 +53,9 @@ type RepositorySpec struct {
 	//+optional
 	//+kubebuilder:validation:Pattern="^\\w+(\\.|:[0-9]).*$"
 	Domain string `json:"domain,omitempty"`
+	// Insecure should be defined if `domain` is not HTTPS.
+	//+optional
+	Insecure bool `json:"insecure,omitempty"`
 	//+optional
 	Maintainers []string `json:"maintainers,omitempty"`
 	//+optional
@@ -103,6 +106,10 @@ func (in Repository) GetRepositoryURL() string {
 	if in.Spec.Domain != "" {
 		if strings.Contains(in.Spec.Domain, "@") {
 			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
+		}
+
+		if in.Spec.Insecure {
+			return fmt.Sprintf("http://%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 		}
 
 		return fmt.Sprintf("https://%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())

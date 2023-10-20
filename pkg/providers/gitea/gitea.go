@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"code.gitea.io/sdk/gitea"
 	deliveryv1alpha1 "github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
@@ -22,9 +23,8 @@ import (
 )
 
 const (
-	tokenKey      = "password"
-	providerType  = "gitea"
-	defaultDomain = "gitea.com"
+	tokenKey     = "password"
+	providerType = "gitea"
 )
 
 // Client gitea.
@@ -65,9 +65,9 @@ func (c *Client) CreateRepository(ctx context.Context, obj mpasv1alpha1.Reposito
 		return fmt.Errorf("token '%s' not found in secret", tokenKey)
 	}
 
-	domain := defaultDomain
-	if obj.Spec.Domain != "" {
-		domain = obj.Spec.Domain
+	domain, err := c.getDomain(obj)
+	if err != nil {
+		return fmt.Errorf("failed to generate domain url: %w", err)
 	}
 
 	client, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
@@ -167,9 +167,9 @@ func (c *Client) CreatePullRequest(ctx context.Context, branch string, sync deli
 		return -1, fmt.Errorf("token '%s' not found in secret", tokenKey)
 	}
 
-	domain := defaultDomain
-	if repository.Spec.Domain != "" {
-		domain = repository.Spec.Domain
+	domain, err := c.getDomain(repository)
+	if err != nil {
+		return -1, fmt.Errorf("failed to generate domain url: %w", err)
 	}
 
 	gclient, err := gitea.NewClient(domain, gitea.SetToken(string(token)))
@@ -237,9 +237,9 @@ func (c *Client) CreateBranchProtection(ctx context.Context, repository mpasv1al
 
 	logger.Info("got secret")
 
-	domain := defaultDomain
-	if repository.Spec.Domain != "" {
-		domain = repository.Spec.Domain
+	domain, err := c.getDomain(repository)
+	if err != nil {
+		return fmt.Errorf("failed to generate domain url: %w", err)
 	}
 
 	logger.Info("default domain set", "domain", domain)
@@ -266,4 +266,16 @@ func (c *Client) CreateBranchProtection(ctx context.Context, repository mpasv1al
 	}
 
 	return nil
+}
+
+func (c *Client) getDomain(obj mpasv1alpha1.Repository) (string, error) {
+	u, err := url.Parse(obj.GetRepositoryURL())
+	if err != nil {
+		return "", fmt.Errorf("failed to parse repository url: %w", err)
+	}
+
+	// construct the domain including the scheme and host but without the path
+	// gitea requires a host and a scheme
+	domain := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	return domain, nil
 }

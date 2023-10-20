@@ -83,6 +83,9 @@ spec:
                 - adopt
                 - fail
                 type: string
+              insecure:
+                description: Insecure should be defined if `domain` is not HTTPS.
+                type: boolean
               interval:
                 type: string
               isOrganization:
