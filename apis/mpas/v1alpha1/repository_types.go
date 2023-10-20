@@ -108,12 +108,11 @@ func (in Repository) GetRepositoryURL() string {
 			return fmt.Sprintf("%s:%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 		}
 
-		scheme := "https"
 		if in.Spec.Insecure {
-			scheme = "http"
+			return fmt.Sprintf("http://%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 		}
 
-		return fmt.Sprintf("%s://%s/%s/%s", scheme, in.Spec.Domain, in.Spec.Owner, in.GetName())
+		return fmt.Sprintf("https://%s/%s/%s", in.Spec.Domain, in.Spec.Owner, in.GetName())
 	}
 
 	domain := ""
