@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/fluxcd/pkg/apis/meta"
@@ -61,6 +62,18 @@ type SyncStatus struct {
 
 	// +optional
 	PullRequestID int `json:"pullRequestID,omitempty"`
+}
+
+func (in *Sync) GetVID() map[string]string {
+	vid := fmt.Sprintf("%d:%s", in.Status.PullRequestID, in.Status.Digest)
+	metadata := make(map[string]string)
+	metadata[GroupVersion.Group+"/sync"] = vid
+
+	return metadata
+}
+
+func (in *Sync) SetObservedGeneration(v int64) {
+	in.Status.ObservedGeneration = v
 }
 
 // GetConditions returns the conditions of the ComponentVersion.

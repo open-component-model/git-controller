@@ -13,13 +13,14 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
+	rreconcile "github.com/fluxcd/pkg/runtime/reconcile"
+	"github.com/open-component-model/ocm-controller/pkg/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kuberecorder "k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
@@ -42,9 +43,6 @@ type RepositoryReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	logger := log.FromContext(ctx).WithName("repository")
-	logger.V(4).Info("entering repository loop...")
-
 	obj := &mpasv1alpha1.Repository{}
 
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
@@ -64,16 +62,15 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return
 		}
 
-		// Set status observed generation option if the component is stalled or ready.
-		if conditions.IsReady(obj) {
-			obj.Status.ObservedGeneration = obj.Generation
-		}
-
-		// Update the object.
-		if perr := patchHelper.Patch(ctx, obj); perr != nil {
-			err = errors.Join(err, perr)
+		if derr := status.UpdateStatus(ctx, patchHelper, obj, r.EventRecorder, obj.GetRequeueAfter()); derr != nil {
+			err = errors.Join(err, derr)
 		}
 	}()
+
+	// Starts the progression by setting ReconcilingCondition.
+	// This will be checked in defer.
+	// Should only be deleted on a success.
+	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "reconciliation in progress for resource: %s", obj.Name)
 
 	return r.reconcile(ctx, obj)
 }
@@ -86,34 +83,48 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	logger.Info("creating or adopting repository")
-	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
-		event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
-		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
-
-		return ctrl.Result{}, fmt.Errorf("failed to create repository: %w", err)
+	if obj.Generation != obj.Status.ObservedGeneration {
+		rreconcile.ProgressiveStatus(
+			false,
+			obj,
+			meta.ProgressingReason,
+			"processing object: new generation %d -> %d",
+			obj.Status.ObservedGeneration,
+			obj.Generation,
+		)
 	}
 
-	logger.Info("updating branch protection rules")
+	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "creating repository: %s", obj.Name)
+
+	if err := r.Provider.CreateRepository(ctx, *obj); err != nil {
+		err := fmt.Errorf("failed to create repository: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
+
+		return ctrl.Result{}, err
+	}
+
+	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "setting up branch protection rules: %s", obj.Name)
+
 	if err := r.Provider.CreateBranchProtection(ctx, *obj); err != nil {
 		if errors.Is(err, providers.NotSupportedError) {
-			// ignore and return without branch protection rules.
-			logger.Error(err, fmt.Sprintf("provider %s does not support updating branch protection rules", obj.Spec.Provider))
+			r.markAsDone(obj)
 
+			// ignore and return without branch protection rules.
 			return ctrl.Result{}, nil
 		}
 
-		conditions.MarkFalse(obj, meta.ReadyCondition, mpasv1alpha1.UpdatingBranchProtectionFailedReason, err.Error())
-		event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
+		err := fmt.Errorf("failed to update branch protection rules: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, mpasv1alpha1.UpdatingBranchProtectionFailedReason, err.Error())
 
-		return ctrl.Result{}, fmt.Errorf("failed to update branch protection rules: %w", err)
+		return ctrl.Result{}, err
 	}
 
-	logger.Info("done reconciling repository")
-	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
-	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
+	r.markAsDone(obj)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *RepositoryReconciler) markAsDone(obj *mpasv1alpha1.Repository) {
+	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
 }
