@@ -14,6 +14,8 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
+	rreconcile "github.com/fluxcd/pkg/runtime/reconcile"
+	"github.com/open-component-model/ocm-controller/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +24,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
@@ -56,8 +57,6 @@ type SyncReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, err error) {
-	log := log.FromContext(ctx)
-
 	obj := &v1alpha1.Sync{}
 	if err = r.Get(ctx, req.NamespacedName, obj); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -66,7 +65,6 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 		return ctrl.Result{}, fmt.Errorf("failed to get git sync object: %w", err)
 	}
-	log.V(4).Info("found reconciling object", "sync", obj)
 
 	// The replication controller doesn't need a shouldReconcile, because it should always reconcile,
 	// that is its purpose.
@@ -79,24 +77,33 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 			return
 		}
 
-		// Set status observed generation option if the component is stalled or ready.
-		if conditions.IsReady(obj) {
-			obj.Status.ObservedGeneration = obj.Generation
-		}
-
-		// Update the object.
-		if perr := patchHelper.Patch(ctx, obj); perr != nil {
-			err = errors.Join(err, perr)
+		if derr := status.UpdateStatus(ctx, patchHelper, obj, r.EventRecorder, obj.GetRequeueAfter()); derr != nil {
+			err = errors.Join(err, derr)
 		}
 	}()
 
+	// Starts the progression by setting ReconcilingCondition.
+	// This will be checked in defer.
+	// Should only be deleted on a success.
+	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "reconciliation in progress for resource: %s", obj.Name)
+
 	// it's important that this happens here so any residual status condition can be overwritten / set.
 	if obj.Status.Digest != "" {
-		log.Info("Sync object already synced; status contains digest information", "digest", obj.Status.Digest)
 		event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, fmt.Sprintf("sync object already synced with digest %s", obj.Status.Digest), nil)
 		conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
 
 		return ctrl.Result{}, nil
+	}
+
+	if obj.Generation != obj.Status.ObservedGeneration {
+		rreconcile.ProgressiveStatus(
+			false,
+			obj,
+			meta.ProgressingReason,
+			"processing object: new generation %d -> %d",
+			obj.Status.ObservedGeneration,
+			obj.Generation,
+		)
 	}
 
 	snapshot := &ocmv1.Snapshot{}
@@ -105,12 +112,10 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		Name:      obj.Spec.SnapshotRef.Name,
 	}, snapshot); err != nil {
 		err = fmt.Errorf("failed to find snapshot: %w", err)
-		r.markAndEmitEvent(obj, v1alpha1.SnapshotGetFailedReason, err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.SnapshotGetFailedReason, err.Error())
 
 		return ctrl.Result{}, err
 	}
-
-	log.V(4).Info("found target snapshot")
 
 	namespace := obj.Spec.RepositoryRef.Namespace
 	if namespace == "" {
@@ -123,12 +128,10 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		Name:      obj.Spec.RepositoryRef.Name,
 	}, repository); err != nil {
 		err = fmt.Errorf("failed to find repository: %w", err)
-		r.markAndEmitEvent(obj, v1alpha1.RepositoryGetFailedReason, err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.RepositoryGetFailedReason, err.Error())
 
 		return ctrl.Result{}, err
 	}
-
-	log.V(4).Info("found target repository")
 
 	authSecret := &corev1.Secret{}
 	if err = r.Get(ctx, types.NamespacedName{
@@ -136,12 +139,10 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		Name:      repository.Spec.Credentials.SecretRef.Name,
 	}, authSecret); err != nil {
 		err = fmt.Errorf("failed to find authentication secret: %w", err)
-		r.markAndEmitEvent(obj, v1alpha1.CredentialsNotFoundReason, err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CredentialsNotFoundReason, err.Error())
 
 		return ctrl.Result{}, err
 	}
-
-	log.V(4).Info("found authentication secret")
 
 	baseBranch := obj.Spec.CommitTemplate.BaseBranch
 	if baseBranch == "" {
@@ -153,15 +154,13 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
 	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
 		err = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
-		r.markAndEmitEvent(obj, v1alpha1.GitRepositoryPushFailedReason, err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
 
 		return ctrl.Result{}, err
 	}
 
-	log.Info("preparing to push snapshot content", "base", baseBranch, "target", targetBranch)
+	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "preparing to push snapshot content with base branch %s and target %s", baseBranch, targetBranch)
 
-	// trim any trailing `/` and then just add.
-	log.V(4).Info("crafting artifact URL to download from", "url", snapshot.Status.RepositoryURL)
 	opts := &pkg.PushOptions{
 		URL:          repository.GetRepositoryURL(),
 		Message:      obj.Spec.CommitTemplate.Message,
@@ -179,22 +178,20 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	digest, err = r.Git.Push(ctx, opts)
 	if err != nil {
 		err = fmt.Errorf("failed to push to git repository: %w", err)
-		r.markAndEmitEvent(obj, v1alpha1.GitRepositoryPushFailedReason, err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
 
 		return ctrl.Result{}, err
 	}
 
-	log.Info("target content pushed with digest", "base", baseBranch, "target", targetBranch, "digest", digest)
-
 	obj.Status.Digest = digest
 
 	if obj.Spec.AutomaticPullRequestCreation {
-		log.Info("automatic pull-request creation is enabled, preparing to create a pull request")
+		rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "creating pull request")
 
 		id, err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository)
 		if err != nil {
 			err = fmt.Errorf("failed to create pull request: %w", err)
-			r.markAndEmitEvent(obj, v1alpha1.CreatePullRequestFailedReason, err)
+			status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CreatePullRequestFailedReason, err.Error())
 
 			return ctrl.Result{}, err
 		}
@@ -202,16 +199,10 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		obj.Status.PullRequestID = id
 	}
 
-	log.Info("successfully reconciled sync object")
 	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
 	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
 
 	return ctrl.Result{}, nil
-}
-
-func (r *SyncReconciler) markAndEmitEvent(obj *v1alpha1.Sync, reason string, err error) {
-	event.New(r.EventRecorder, obj, eventv1.EventSeverityError, err.Error(), nil)
-	conditions.MarkFalse(obj, meta.ReadyCondition, reason, err.Error())
 }
 
 // SetupWithManager sets up the controller with the Manager.

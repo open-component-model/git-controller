@@ -129,6 +129,17 @@ func (in Repository) GetRepositoryURL() string {
 	return fmt.Sprintf("https://%s/%s/%s", domain, in.Spec.Owner, in.GetName())
 }
 
+func (in *Repository) GetVID() map[string]string {
+	metadata := make(map[string]string)
+	metadata[GroupVersion.Group+"/repository"] = fmt.Sprintf("%s/%s", in.Spec.Provider, in.Name)
+
+	return metadata
+}
+
+func (in *Repository) SetObservedGeneration(v int64) {
+	in.Status.ObservedGeneration = v
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
