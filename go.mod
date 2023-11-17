@@ -36,7 +36,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/google/go-github/v52 v52.0.0
 	github.com/open-component-model/ocm v0.4.0
-	github.com/open-component-model/ocm-controller v0.16.1-0.20231115142704-81cfce8cc592
+	github.com/open-component-model/ocm-controller v0.16.1
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/oauth2 v0.11.0
 	k8s.io/api v0.28.1
