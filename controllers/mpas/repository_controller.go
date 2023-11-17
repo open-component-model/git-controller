@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	rreconcile "github.com/fluxcd/pkg/runtime/reconcile"
 	"github.com/open-component-model/ocm-controller/pkg/status"
@@ -24,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
-	"github.com/open-component-model/git-controller/pkg/event"
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
@@ -107,7 +104,7 @@ func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.
 
 	if err := r.Provider.CreateBranchProtection(ctx, *obj); err != nil {
 		if errors.Is(err, providers.NotSupportedError) {
-			r.markAsDone(obj)
+			status.MarkReady(r.EventRecorder, obj, "Successful reconciliation")
 
 			// ignore and return without branch protection rules.
 			return ctrl.Result{}, nil
@@ -119,12 +116,7 @@ func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.
 		return ctrl.Result{}, err
 	}
 
-	r.markAsDone(obj)
+	status.MarkReady(r.EventRecorder, obj, "Successful reconciliation")
 
 	return ctrl.Result{}, nil
-}
-
-func (r *RepositoryReconciler) markAsDone(obj *mpasv1alpha1.Repository) {
-	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
-	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
 }

@@ -10,9 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	rreconcile "github.com/fluxcd/pkg/runtime/reconcile"
 	"github.com/open-component-model/ocm-controller/pkg/status"
@@ -31,7 +29,6 @@ import (
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
 	"github.com/open-component-model/git-controller/pkg"
-	"github.com/open-component-model/git-controller/pkg/event"
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
@@ -89,8 +86,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 
 	// it's important that this happens here so any residual status condition can be overwritten / set.
 	if obj.Status.Digest != "" {
-		event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, fmt.Sprintf("sync object already synced with digest %s", obj.Status.Digest), nil)
-		conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
+		status.MarkReady(r.EventRecorder, obj, "Digest already reconciled")
 
 		return ctrl.Result{}, nil
 	}
@@ -199,8 +195,7 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 		obj.Status.PullRequestID = id
 	}
 
-	conditions.MarkTrue(obj, meta.ReadyCondition, meta.SucceededReason, "Reconciliation success")
-	event.New(r.EventRecorder, obj, eventv1.EventSeverityInfo, "Reconciliation success", nil)
+	status.MarkReady(r.EventRecorder, obj, "Reconciliation success")
 
 	return ctrl.Result{}, nil
 }
