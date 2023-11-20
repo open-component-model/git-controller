@@ -3,79 +3,110 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/open-component-model/git-controller)](https://api.reuse.software/info/github.com/open-component-model/git-controller)
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+This is the main repository for `git-controller`. The `git-controller` is designed to enable the automated deployment of
+software using the [Open Component Model](https://ocm.software) and Flux.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+## Functionality
 
-```sh
-kubectl apply -f config/samples/
+`git-controller` provides the following two main functionalities.
+
+### Syncing
+
+The `Sync` API objects takes a snapshot's output and pushes it into a specific repository using some pre-configured
+commit information.
+
+A sample yaml for running a sync operation can look something like this:
+
+```yaml
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Sync
+metadata:
+  name: git-sample
+  namespace: ocm-system
+spec:
+  commitTemplate:
+    email: e2e-tester@gitea.com
+    message: "Update made from git-controller"
+    name: Testy McTestface
+  interval: 10m0s
+  subPath: .
+  snapshotRef:
+    name: podinfo-deployment-t5bhemw
+  repositoryRef:
+    name: new-repository-2 # The name of the Repository object that contains access information to the repository.
+  automaticPullRequestCreation: true
 ```
 
-2. Build and push your image to the location specified by `IMG`:
+The `repositoryRef` information contains a link to the Repository object explained in section [Repository Management](#repository-management).
+That object contains information on how to access the repository and what credentials to use.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/git-controller:tag
+Setting `automaticPullRequestCreation: true` will create a Pull Request of the changes. If no branch information is
+provided the changes are created from a random generated branch to `main`. The pull request can further be fine-tuned
+with the following details:
+
+```yaml
+pullRequestTemplate:
+  title: This is the title that will be used.
+  description: Contains more information about the Pull Request.
+  base: feature-branch-1
 ```
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+### Repository Management
 
-```sh
-make deploy IMG=<some-registry>/git-controller:tag
+The Repository object manages git repositories for supported providers. At the moment of this writing the following
+providers are supported:
+- GitHub
+- Gitlab
+- Gitea
+
+The main objective of this object is to create a Repository. Along that, it also sets up some branch protection rules.
+Branch protection rules are used during the Validation processes in the MPAS environment.
+
+A sample repository could look something like this:
+
+```yaml
+apiVersion: mpas.ocm.software/v1alpha1
+kind: Repository
+metadata:
+  name: new-repository-2
+  namespace: mpas-system
+spec:
+  isOrganization: false
+  visibility: public
+  credentials:
+    secretRef:
+      name: git-sync-secret
+  interval: 10m
+  owner: Skarlso
+  provider: github
+  existingRepositoryPolicy: adopt
 ```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+There are several things here to unpack. First, is the organization. This needs to be set in case the owner of the
+future repository is an organization. By default, this is set to `true`. Here, we use `false` for testing purposes.
 
-```sh
-make uninstall
-```
+The second is `visibility`. This can be switched from `public` to `private`.
 
-### Undeploy controller
-UnDeploy the controller to the cluster:
+`credentials` are self-explanatory. Either a token or SSH credentials are supported.
 
-```sh
-make undeploy
-```
+Provider is between `github`, `gitlab` or `gitea`. And finally, we use `existingRepositoryPolicy` to decide what to do
+in case the repository already exists. `adopt` will use the repository as is. Not setting it will fail the process if
+the repository already exists.
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+## Testing
 
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+`git-controller` usually doesn't run on its own. Since most of its features require a Snapshot to be present. And a
+Snapshot is created by the ocm-controller. However, if testing only involves the `Repositroy` object, make sure that a
+certificate TLS secret existing in the cluster with the name `ocm-registry-tls-certs`. This can be generated with
+`mkcert` or by the test cluster prime script under [ocm-controller](https://github.com/open-component-model/ocm-controller/blob/4109172a978c6e07733870eda85dc2b0029e8e8b/hack/prime_test_cluster.sh).
 
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster
+`git-controller` has a `Tiltfile` which can be used for rapid development. [tilt](https://tilt.dev/) is a convenient
+little tool to spin up a controller and do some extra setup in the process conditionally. It will also keep updating
+the environment via a process that is called [control loop](https://docs.tilt.dev/controlloop.html); it's similar to
+a controller's reconcile loop.
 
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+To get started simple run `tilt up` then hit `<space>` to enter Tilt's ui. You should see git-controller starting up.
 
 ## Licensing
 
