@@ -90,7 +90,7 @@ func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Re
 	}
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: string(token)})
-	tc := oauth2.NewClient(context.Background(), ts)
+	tc := oauth2.NewClient(ctx, ts)
 	g := ggithub.NewClient(tc)
 
 	if _, _, err := g.Repositories.UpdateBranchProtection(ctx, obj.Spec.Owner, obj.Name, obj.Spec.DefaultBranch, &ggithub.ProtectionRequest{
@@ -188,7 +188,7 @@ func (c *Client) createCheckRun(ctx context.Context, repository mpasv1alpha1.Rep
 	}
 
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: string(token)})
-	tc := oauth2.NewClient(context.Background(), ts)
+	tc := oauth2.NewClient(ctx, ts)
 
 	g := ggithub.NewClient(tc)
 	//

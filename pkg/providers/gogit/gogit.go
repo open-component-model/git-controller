@@ -19,6 +19,8 @@ import (
 )
 
 // CreateOrganizationRepository creates a repository for an authenticated organization.
+//
+//nolint:dupl // unfortunately it is the same but using a different interface with different parameter types.
 func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, domain string, obj mpasv1alpha1.Repository) error {
 	logger := log.FromContext(ctx)
 
@@ -88,6 +90,8 @@ func CreateOrganizationRepository(ctx context.Context, gc gitprovider.Client, do
 }
 
 // CreateUserRepository creates a repository for an authenticated user.
+//
+//nolint:dupl // unfortunately it is the same but using a different interface with different parameter types.
 func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain string, obj mpasv1alpha1.Repository) error {
 	logger := log.FromContext(ctx)
 
@@ -157,7 +161,15 @@ func CreateUserRepository(ctx context.Context, gc gitprovider.Client, domain str
 }
 
 // CreateOrganizationPullRequest creates a pull-request for an organization owned repository.
-func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) (int, error) {
+//
+//nolint:dupl // unfortunately it is the same but using a different interface with different parameter types.
+func CreateOrganizationPullRequest(
+	ctx context.Context,
+	gc gitprovider.Client,
+	domain, branch string,
+	spec deliveryv1alpha1.PullRequestTemplate,
+	repository mpasv1alpha1.Repository,
+) (int, error) {
 	// find the repository
 	repo, err := gc.OrgRepositories().Get(ctx, gitprovider.OrgRepositoryRef{
 		OrganizationRef: gitprovider.OrganizationRef{
@@ -200,7 +212,15 @@ func CreateOrganizationPullRequest(ctx context.Context, gc gitprovider.Client, d
 }
 
 // CreateUserPullRequest creates a pull-request for a user owned repository.
-func CreateUserPullRequest(ctx context.Context, gc gitprovider.Client, domain, branch string, spec deliveryv1alpha1.PullRequestTemplate, repository mpasv1alpha1.Repository) (int, error) {
+//
+//nolint:dupl // unfortunately it is the same but using a different interface with different parameter types.
+func CreateUserPullRequest(
+	ctx context.Context,
+	gc gitprovider.Client,
+	domain, branch string,
+	spec deliveryv1alpha1.PullRequestTemplate,
+	repository mpasv1alpha1.Repository,
+) (int, error) {
 	// find the repository
 	repo, err := gc.UserRepositories().Get(ctx, gitprovider.UserRepositoryRef{
 		UserRef: gitprovider.UserRef{

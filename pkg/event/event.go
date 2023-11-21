@@ -13,6 +13,7 @@ import (
 	kuberecorder "k8s.io/client-go/tools/record"
 )
 
+// New creates a new event recorder.
 func New(recorder kuberecorder.EventRecorder, obj conditions.Getter, severity, msg string, metadata map[string]string) {
 	if metadata == nil {
 		metadata = map[string]string{}
