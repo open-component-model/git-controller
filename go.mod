@@ -33,7 +33,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.35.0
 	github.com/fluxcd/source-controller/api v1.1.0
 	github.com/go-git/go-git/v5 v5.6.0
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/google/go-github/v52 v52.0.0
 	github.com/open-component-model/ocm v0.4.0
 	github.com/open-component-model/ocm-controller v0.16.1
