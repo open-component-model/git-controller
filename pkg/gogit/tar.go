@@ -18,10 +18,11 @@ func Untar(in io.Reader, dir string) error {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
+
 			return err
 		}
 
-		abs := filepath.Join(dir, header.Name)
+		abs := filepath.Join(dir, header.Name) //nolint:gosec // tar
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -37,7 +38,7 @@ func Untar(in io.Reader, dir string) error {
 			// archive can be an image layer and that can even reach the gigabyte range.
 			// For now, we acknowledge the risk.
 			//
-			// We checked other softwares and tried to figure out how they manage this,
+			// We checked other software and tried to figure out how they manage this,
 			// but it's handled the same way.
 			if _, err := io.Copy(file, tr); err != nil {
 				return fmt.Errorf("unable to copy tar file to filesystem: %w", err)

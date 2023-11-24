@@ -13,7 +13,6 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/patch"
 	rreconcile "github.com/fluxcd/pkg/runtime/reconcile"
-	"github.com/open-component-model/ocm-controller/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	ocmv1 "github.com/open-component-model/ocm-controller/api/v1alpha1"
+	"github.com/open-component-model/ocm-controller/pkg/status"
 
 	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 	mpasv1alpha1 "github.com/open-component-model/git-controller/apis/mpas/v1alpha1"
@@ -32,7 +32,7 @@ import (
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
-// SyncReconciler reconciles a Sync object
+// SyncReconciler reconciles a Sync object.
 type SyncReconciler struct {
 	client.Client
 	kuberecorder.EventRecorder
@@ -84,118 +84,16 @@ func (r *SyncReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctr
 	// Should only be deleted on a success.
 	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "reconciliation in progress for resource: %s", obj.Name)
 
-	// it's important that this happens here so any residual status condition can be overwritten / set.
+	// It's important that this happens here so any residual status condition can be overwritten / set.
 	if obj.Status.Digest != "" {
 		status.MarkReady(r.EventRecorder, obj, "Digest already reconciled")
 
 		return ctrl.Result{}, nil
 	}
 
-	if obj.Generation != obj.Status.ObservedGeneration {
-		rreconcile.ProgressiveStatus(
-			false,
-			obj,
-			meta.ProgressingReason,
-			"processing object: new generation %d -> %d",
-			obj.Status.ObservedGeneration,
-			obj.Generation,
-		)
-	}
-
-	snapshot := &ocmv1.Snapshot{}
-	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: obj.Namespace,
-		Name:      obj.Spec.SnapshotRef.Name,
-	}, snapshot); err != nil {
-		err = fmt.Errorf("failed to find snapshot: %w", err)
-		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.SnapshotGetFailedReason, err.Error())
-
+	if err := r.reconcile(ctx, obj); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	namespace := obj.Spec.RepositoryRef.Namespace
-	if namespace == "" {
-		namespace = obj.Namespace
-	}
-
-	repository := &mpasv1alpha1.Repository{}
-	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: namespace,
-		Name:      obj.Spec.RepositoryRef.Name,
-	}, repository); err != nil {
-		err = fmt.Errorf("failed to find repository: %w", err)
-		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.RepositoryGetFailedReason, err.Error())
-
-		return ctrl.Result{}, err
-	}
-
-	authSecret := &corev1.Secret{}
-	if err = r.Get(ctx, types.NamespacedName{
-		Namespace: repository.Namespace,
-		Name:      repository.Spec.Credentials.SecretRef.Name,
-	}, authSecret); err != nil {
-		err = fmt.Errorf("failed to find authentication secret: %w", err)
-		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CredentialsNotFoundReason, err.Error())
-
-		return ctrl.Result{}, err
-	}
-
-	baseBranch := obj.Spec.CommitTemplate.BaseBranch
-	if baseBranch == "" {
-		baseBranch = "main"
-	}
-
-	targetBranch := obj.Spec.CommitTemplate.TargetBranch
-	if targetBranch == "" && obj.Spec.AutomaticPullRequestCreation {
-		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
-	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
-		err = fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
-		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
-
-		return ctrl.Result{}, err
-	}
-
-	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "preparing to push snapshot content with base branch %s and target %s", baseBranch, targetBranch)
-
-	opts := &pkg.PushOptions{
-		URL:          repository.GetRepositoryURL(),
-		Message:      obj.Spec.CommitTemplate.Message,
-		Name:         obj.Spec.CommitTemplate.Name,
-		Email:        obj.Spec.CommitTemplate.Email,
-		Snapshot:     snapshot,
-		BaseBranch:   baseBranch,
-		TargetBranch: targetBranch,
-		SubPath:      obj.Spec.SubPath,
-	}
-
-	r.parseAuthSecret(authSecret, opts)
-
-	var digest string
-	digest, err = r.Git.Push(ctx, opts)
-	if err != nil {
-		err = fmt.Errorf("failed to push to git repository: %w", err)
-		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
-
-		return ctrl.Result{}, err
-	}
-
-	obj.Status.Digest = digest
-
-	if obj.Spec.AutomaticPullRequestCreation {
-		rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "creating pull request")
-
-		id, err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository)
-		if err != nil {
-			err = fmt.Errorf("failed to create pull request: %w", err)
-			status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CreatePullRequestFailedReason, err.Error())
-
-			return ctrl.Result{}, err
-		}
-
-		obj.Status.PullRequestID = id
-	}
-
-	status.MarkReady(r.EventRecorder, obj, "Reconciliation success")
 
 	return ctrl.Result{}, nil
 }
@@ -216,6 +114,7 @@ func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *pkg.PushOp
 				Password: string(secret.Data["password"]),
 			},
 		}
+
 		return
 	}
 	// default to basic auth.
@@ -225,4 +124,121 @@ func (r *SyncReconciler) parseAuthSecret(secret *corev1.Secret, opts *pkg.PushOp
 			Password: string(secret.Data["password"]),
 		},
 	}
+}
+
+func (r *SyncReconciler) reconcile(ctx context.Context, obj *v1alpha1.Sync) error {
+	if obj.Generation != obj.Status.ObservedGeneration {
+		rreconcile.ProgressiveStatus(
+			false,
+			obj,
+			meta.ProgressingReason,
+			"processing object: new generation %d -> %d",
+			obj.Status.ObservedGeneration,
+			obj.Generation,
+		)
+	}
+
+	snapshot := &ocmv1.Snapshot{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: obj.Namespace,
+		Name:      obj.Spec.SnapshotRef.Name,
+	}, snapshot); err != nil {
+		err = fmt.Errorf("failed to find snapshot: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.SnapshotGetFailedReason, err.Error())
+
+		return err
+	}
+
+	namespace := obj.Spec.RepositoryRef.Namespace
+	if namespace == "" {
+		namespace = obj.Namespace
+	}
+
+	repository := &mpasv1alpha1.Repository{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: namespace,
+		Name:      obj.Spec.RepositoryRef.Name,
+	}, repository); err != nil {
+		err = fmt.Errorf("failed to find repository: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.RepositoryGetFailedReason, err.Error())
+
+		return err
+	}
+
+	authSecret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: repository.Namespace,
+		Name:      repository.Spec.Credentials.SecretRef.Name,
+	}, authSecret); err != nil {
+		err = fmt.Errorf("failed to find authentication secret: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CredentialsNotFoundReason, err.Error())
+
+		return err
+	}
+
+	baseBranch := obj.Spec.CommitTemplate.BaseBranch
+	if baseBranch == "" {
+		baseBranch = "main"
+	}
+
+	targetBranch := obj.Spec.CommitTemplate.TargetBranch
+	if targetBranch == "" && obj.Spec.AutomaticPullRequestCreation {
+		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
+	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
+		err := fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
+
+		return err
+	}
+
+	rreconcile.ProgressiveStatus(
+		false,
+		obj,
+		meta.ProgressingReason,
+		"preparing to push snapshot content with base branch %s and target %s",
+		baseBranch,
+		targetBranch,
+	)
+
+	opts := &pkg.PushOptions{
+		URL:          repository.GetRepositoryURL(),
+		Message:      obj.Spec.CommitTemplate.Message,
+		Name:         obj.Spec.CommitTemplate.Name,
+		Email:        obj.Spec.CommitTemplate.Email,
+		Snapshot:     snapshot,
+		BaseBranch:   baseBranch,
+		TargetBranch: targetBranch,
+		SubPath:      obj.Spec.SubPath,
+	}
+
+	r.parseAuthSecret(authSecret, opts)
+
+	var digest string
+	digest, err := r.Git.Push(ctx, opts)
+	if err != nil {
+		err = fmt.Errorf("failed to push to git repository: %w", err)
+		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
+
+		return err
+	}
+
+	obj.Status.Digest = digest
+
+	if obj.Spec.AutomaticPullRequestCreation {
+		rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "creating pull request")
+
+		id, err := r.Provider.CreatePullRequest(ctx, targetBranch, *obj, *repository)
+		if err != nil {
+			err = fmt.Errorf("failed to create pull request: %w", err)
+			status.MarkNotReady(r.EventRecorder, obj, v1alpha1.CreatePullRequestFailedReason, err.Error())
+
+			return err
+		}
+
+		obj.Status.PullRequestID = id
+	}
+
+	status.MarkReady(r.EventRecorder, obj, "Reconciliation success")
+
+	return nil
 }

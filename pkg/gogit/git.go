@@ -19,6 +19,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-logr/logr"
+	"github.com/open-component-model/git-controller/apis/delivery/v1alpha1"
 
 	"github.com/open-component-model/ocm-controller/pkg/cache"
 	"github.com/open-component-model/ocm-controller/pkg/ocm"
@@ -39,11 +40,21 @@ func NewGoGit(log logr.Logger, cache cache.Cache) *Git {
 }
 
 func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
-	g.Logger.V(4).Info("running push operation", "msg", opts.Message, "snapshot", opts.Snapshot.Name, "url", opts.URL, "sub-path", opts.SubPath)
+	g.Logger.V(v1alpha1.LevelDebug).Info(
+		"running push operation",
+		"msg",
+		opts.Message,
+		"snapshot",
+		opts.Snapshot.Name,
+		"url",
+		opts.URL,
+		"sub-path",
+		opts.SubPath,
+	)
 
 	dir, err := os.MkdirTemp("", "clone")
 	if err != nil {
-		return "", fmt.Errorf("failed to initialise temp folder: %w", err)
+		return "", fmt.Errorf("failed to initialize temp folder: %w", err)
 	}
 
 	var auth transport.AuthMethod
@@ -90,7 +101,8 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	}
 
 	dir = filepath.Join(dir, opts.SubPath)
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	const perm = 0o777
+	if err := os.MkdirAll(dir, perm); err != nil {
 		return "", fmt.Errorf("failed to create subPath: %w", err)
 	}
 
@@ -133,7 +145,7 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to commit changes: %w", err)
 	}
-	g.Logger.V(4).Info("pushing commit", "commit", commit)
+	g.Logger.V(v1alpha1.LevelDebug).Info("pushing commit", "commit", commit)
 	pushOptions := &git.PushOptions{
 		Prune: opts.Prune,
 		Auth:  auth,
@@ -141,5 +153,6 @@ func (g *Git) Push(ctx context.Context, opts *pkg.PushOptions) (string, error) {
 	if err := r.Push(pushOptions); err != nil {
 		return "", fmt.Errorf("failed to push new snapshot: %w", err)
 	}
+
 	return opts.Snapshot.Spec.Digest, nil
 }

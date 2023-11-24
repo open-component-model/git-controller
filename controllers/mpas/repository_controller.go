@@ -25,7 +25,7 @@ import (
 	"github.com/open-component-model/git-controller/pkg/providers"
 )
 
-// RepositoryReconciler reconciles a Repository object
+// RepositoryReconciler reconciles a Repository object.
 type RepositoryReconciler struct {
 	client.Client
 	kuberecorder.EventRecorder
@@ -69,7 +69,11 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Should only be deleted on a success.
 	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "reconciliation in progress for resource: %s", obj.Name)
 
-	return r.reconcile(ctx, obj)
+	if err := r.reconcile(ctx, obj); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -79,7 +83,7 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) (ctrl.Result, error) {
+func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.Repository) error {
 	if obj.Generation != obj.Status.ObservedGeneration {
 		rreconcile.ProgressiveStatus(
 			false,
@@ -97,26 +101,26 @@ func (r *RepositoryReconciler) reconcile(ctx context.Context, obj *mpasv1alpha1.
 		err := fmt.Errorf("failed to create repository: %w", err)
 		status.MarkNotReady(r.EventRecorder, obj, mpasv1alpha1.RepositoryCreateFailedReason, err.Error())
 
-		return ctrl.Result{}, err
+		return err
 	}
 
 	rreconcile.ProgressiveStatus(false, obj, meta.ProgressingReason, "setting up branch protection rules: %s", obj.Name)
 
 	if err := r.Provider.CreateBranchProtection(ctx, *obj); err != nil {
-		if errors.Is(err, providers.NotSupportedError) {
+		if errors.Is(err, providers.ErrNotSupported) {
 			status.MarkReady(r.EventRecorder, obj, "Successful reconciliation")
 
 			// ignore and return without branch protection rules.
-			return ctrl.Result{}, nil
+			return nil
 		}
 
 		err := fmt.Errorf("failed to update branch protection rules: %w", err)
 		status.MarkNotReady(r.EventRecorder, obj, mpasv1alpha1.UpdatingBranchProtectionFailedReason, err.Error())
 
-		return ctrl.Result{}, err
+		return err
 	}
 
 	status.MarkReady(r.EventRecorder, obj, "Successful reconciliation")
 
-	return ctrl.Result{}, nil
+	return nil
 }

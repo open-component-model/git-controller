@@ -28,7 +28,7 @@ var (
 	ExistingRepositoryPolicyFail ExistingRepositoryPolicy = "fail"
 )
 
-// RepositorySpec defines the desired state of Repository
+// RepositorySpec defines the desired state of Repository.
 type RepositorySpec struct {
 	//+required
 	Provider string `json:"provider"`
@@ -73,7 +73,7 @@ type CommitTemplate struct {
 	Name    string `json:"name"`
 }
 
-// RepositoryStatus defines the observed state of Repository
+// RepositoryStatus defines the observed state of Repository.
 type RepositoryStatus struct {
 	// ObservedGeneration is the last reconciled generation.
 	// +optional
@@ -143,7 +143,7 @@ func (in *Repository) SetObservedGeneration(v int64) {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Repository is the Schema for the repositories API
+// Repository is the Schema for the repositories API.
 type Repository struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -154,7 +154,7 @@ type Repository struct {
 
 //+kubebuilder:object:root=true
 
-// RepositoryList contains a list of Repository
+// RepositoryList contains a list of Repository.
 type RepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

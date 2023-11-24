@@ -26,10 +26,8 @@ const (
 	defaultDomain = gitlab.DefaultDomain
 )
 
-var (
-	// for now, only personal tokens are supported
-	tokenType = "personal"
-)
+// tokenType for now, only personal tokens are supported.
+var tokenType = "personal"
 
 // Client gitlab.
 type Client struct {
@@ -134,5 +132,5 @@ func (c *Client) CreateBranchProtection(ctx context.Context, obj mpasv1alpha1.Re
 		return c.next.CreateBranchProtection(ctx, obj)
 	}
 
-	return providers.NotSupportedError
+	return providers.ErrNotSupported
 }

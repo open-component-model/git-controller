@@ -18,7 +18,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Repository is the Schema for the repositories API
+        description: Repository is the Schema for the repositories API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: RepositorySpec defines the desired state of Repository
+            description: RepositorySpec defines the desired state of Repository.
             properties:
               commitTemplate:
                 description: CommitTemplate defines the commit template to use when
@@ -113,7 +113,7 @@ spec:
             - provider
             type: object
           status:
-            description: RepositoryStatus defines the observed state of Repository
+            description: RepositoryStatus defines the observed state of Repository.
             properties:
               conditions:
                 items:

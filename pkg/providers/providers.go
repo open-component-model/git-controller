@@ -18,7 +18,7 @@ const (
 	DefaultDescription = "Pull requested created automatically by OCM Git Controller."
 )
 
-var NotSupportedError = errors.New("functionality not supported by provider")
+var ErrNotSupported = errors.New("functionality not supported by provider")
 
 // Provider adds the ability to create repositories and pull requests.
 type Provider interface {

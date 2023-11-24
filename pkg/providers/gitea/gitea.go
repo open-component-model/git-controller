@@ -221,7 +221,8 @@ func (c *Client) CreateBranchProtection(ctx context.Context, repository mpasv1al
 		return c.next.CreateBranchProtection(ctx, repository)
 	}
 
-	//TODO: use safe auth strategy post MVP
+	//nolint:godox // ignore todo
+	// TODO: use safe auth strategy post MVP
 	secret := &v1.Secret{}
 	if err := c.client.Get(ctx, types.NamespacedName{
 		Name:      repository.Spec.Credentials.SecretRef.Name,
@@ -277,5 +278,6 @@ func (c *Client) getDomain(obj mpasv1alpha1.Repository) (string, error) {
 	// construct the domain including the scheme and host but without the path
 	// gitea requires a host and a scheme
 	domain := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+
 	return domain, nil
 }

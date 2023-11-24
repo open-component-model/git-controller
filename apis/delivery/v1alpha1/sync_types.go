@@ -33,7 +33,7 @@ type PullRequestTemplate struct {
 	Base        string `json:"base,omitempty"`
 }
 
-// SyncSpec defines the desired state of Sync
+// SyncSpec defines the desired state of Sync.
 type SyncSpec struct {
 	SnapshotRef    v1.LocalObjectReference        `json:"snapshotRef"`
 	RepositoryRef  meta.NamespacedObjectReference `json:"repositoryRef"`
@@ -48,7 +48,7 @@ type SyncSpec struct {
 	PullRequestTemplate PullRequestTemplate `json:"pullRequestTemplate,omitempty"`
 }
 
-// SyncStatus defines the observed state of Sync
+// SyncStatus defines the observed state of Sync.
 type SyncStatus struct {
 	Digest string `json:"digest,omitempty"`
 
@@ -95,7 +95,7 @@ func (in Sync) GetRequeueAfter() time.Duration {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Sync is the Schema for the syncs API
+// Sync is the Schema for the syncs API.
 type Sync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -106,7 +106,7 @@ type Sync struct {
 
 //+kubebuilder:object:root=true
 
-// SyncList contains a list of Sync
+// SyncList contains a list of Sync.
 type SyncList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
