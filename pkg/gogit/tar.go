@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Untar writes a tar stream to a filesystem.
@@ -22,7 +23,12 @@ func Untar(in io.Reader, dir string) error {
 			return err
 		}
 
-		abs := filepath.Join(dir, header.Name) //nolint:gosec // tar
+		fp, err := sanitizeArchivePath(dir, header.Name)
+		if err != nil {
+			return fmt.Errorf("illegal file path: %s", header.Name)
+		}
+
+		abs := filepath.Join(dir, fp)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -30,7 +36,11 @@ func Untar(in io.Reader, dir string) error {
 				return fmt.Errorf("unable to create directory %s: %w", header.Name, err)
 			}
 		case tar.TypeReg:
-			file, err := os.OpenFile(abs, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode))
+			file, err := os.OpenFile(
+				abs,
+				os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+				os.FileMode(header.Mode),
+			)
 			if err != nil {
 				return fmt.Errorf("unable to open file %s: %w", header.Name, err)
 			}
@@ -48,4 +58,14 @@ func Untar(in io.Reader, dir string) error {
 			}
 		}
 	}
+}
+
+// mitigate "G305: Zip Slip vulnerability".
+func sanitizeArchivePath(dir, path string) (v string, err error) {
+	v = filepath.Join(dir, path)
+	if !strings.HasPrefix(v, filepath.Clean(dir)) {
+		return "", fmt.Errorf("illegal filepath: %s", path)
+	}
+
+	return v, nil
 }
