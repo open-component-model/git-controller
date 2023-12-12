@@ -23,12 +23,10 @@ func Untar(in io.Reader, dir string) error {
 			return err
 		}
 
-		fp, err := sanitizeArchivePath(dir, header.Name)
+		abs, err := sanitizeArchivePath(dir, header.Name)
 		if err != nil {
 			return fmt.Errorf("illegal file path: %s", header.Name)
 		}
-
-		abs := filepath.Join(dir, fp)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
