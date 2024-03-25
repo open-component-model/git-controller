@@ -185,7 +185,7 @@ func (r *SyncReconciler) reconcile(ctx context.Context, obj *v1alpha1.Sync) erro
 	if targetBranch == "" && obj.Spec.AutomaticPullRequestCreation {
 		targetBranch = fmt.Sprintf("branch-%d", time.Now().Unix())
 	} else if targetBranch == "" && !obj.Spec.AutomaticPullRequestCreation {
-		err := fmt.Errorf("branch cannot be empty if automatic pull request creation is not enabled")
+		err := errors.New("branch cannot be empty if automatic pull request creation is not enabled")
 		status.MarkNotReady(r.EventRecorder, obj, v1alpha1.GitRepositoryPushFailedReason, err.Error())
 
 		return err

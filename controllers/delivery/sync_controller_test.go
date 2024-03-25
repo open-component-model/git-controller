@@ -47,7 +47,7 @@ func TestSyncReconciler(t *testing.T) {
 		},
 		Spec: mpasv1alpha1.RepositorySpec{
 			Provider: "github",
-			Owner:    "Skarlso",
+			Owner:    "open-component-model",
 			Credentials: mpasv1alpha1.Credentials{
 				SecretRef: v1.LocalObjectReference{
 					Name: secret.Name,
@@ -72,7 +72,7 @@ func TestSyncReconciler(t *testing.T) {
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{
 				TargetBranch: "main",
-				Name:         "Skarlso",
+				Name:         "open-component-model",
 				Email:        "email@mail.com",
 				Message:      "This is my message",
 			},
@@ -130,7 +130,7 @@ func TestSyncReconcilerIsSkippedIfDigestIsAlreadyPresent(t *testing.T) {
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{
 				TargetBranch: "main",
-				Name:         "Skarlso",
+				Name:         "open-component-model",
 				Email:        "email@mail.com",
 				Message:      "This is my message",
 			},
@@ -192,7 +192,7 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 		},
 		Spec: mpasv1alpha1.RepositorySpec{
 			Provider: "github",
-			Owner:    "Skarlso",
+			Owner:    "open-component-model",
 			Credentials: mpasv1alpha1.Credentials{
 				SecretRef: v1.LocalObjectReference{
 					Name: secret.Name,
@@ -222,7 +222,7 @@ func TestSyncReconcilerWithAutomaticPullRequest(t *testing.T) {
 			},
 			CommitTemplate: v1alpha1.CommitTemplate{
 				TargetBranch: "main",
-				Name:         "Skarlso",
+				Name:         "open-component-model",
 				Email:        "email@mail.com",
 				Message:      "This is my message",
 			},
