@@ -78,7 +78,7 @@ spec:
     secretRef:
       name: git-sync-secret
   interval: 10m
-  owner: Skarlso
+  owner: open-component-model
   provider: github
   existingRepositoryPolicy: adopt
 ```
