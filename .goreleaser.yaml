@@ -22,6 +22,24 @@ archives:
 release:
   extra_files:
     - glob: output/install.yaml
+sboms:
+  - id: source
+    artifacts: source
+    documents:
+      - "{{ .ProjectName }}-{{ .Version }}-sbom.spdx.json"
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - '--output-certificate=${certificate}'
+      - '--output-signature=${signature}'
+      - '${artifact}'
+      - '--yes'
+    artifacts: checksum
+    output: true
 checksum:
   name_template: 'checksums.txt'
   extra_files:
