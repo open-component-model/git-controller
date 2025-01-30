@@ -165,16 +165,6 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-.PHONY: generate-license
-generate-license:
-	for f in $(shell find . -name "*.go" -o -name "*.sh"); do \
-		reuse addheader -r \
-			--copyright="SAP SE or an SAP affiliate company and Open Component Model contributors." \
-			--license="Apache-2.0" \
-			$$f \
-			--skip-unrecognised; \
-	done
-
 # Find or download gen-crd-api-reference-docs
 .PHONY: gen-crd-api-reference-docs
 gen-crd-api-reference-docs: $(GEN_CRD_API_REFERENCE_DOCS)
