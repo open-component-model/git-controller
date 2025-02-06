@@ -98,9 +98,9 @@ jobs:
         mkdir -p output
         kustomize build ./config/default > ./output/install.yaml
     - name: Setup Syft
-      uses: anchore/sbom-action/download-syft@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
+      uses: anchore/sbom-action/download-syft@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
     - name: Setup Cosign
-      uses: sigstore/cosign-installer@v3.5.0
+      uses: sigstore/cosign-installer@v3.7.0
     - name: Run goreleaser
       uses: goreleaser/goreleaser-action@v6
       with:
