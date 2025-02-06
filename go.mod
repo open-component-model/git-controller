@@ -1,6 +1,6 @@
 module github.com/open-component-model/git-controller
 
-go 1.21
+go 1.23.5
 
 // Flux dependent re-writes. These are needed to be compatible with the flux version at all times.
 replace (
