@@ -2,7 +2,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: git-controller-manager-role
 rules:
 - apiGroups:
@@ -24,37 +23,7 @@ rules:
   - delivery.ocm.software
   resources:
   - ocmresources
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - delivery.ocm.software
-  resources:
   - snapshots
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - delivery.ocm.software
-  resources:
-  - snapshots/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - delivery.ocm.software
-  resources:
   - syncs
   verbs:
   - create
@@ -67,16 +36,17 @@ rules:
 - apiGroups:
   - delivery.ocm.software
   resources:
-  - syncs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - delivery.ocm.software
-  resources:
+  - snapshots/status
   - syncs/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - delivery.ocm.software
+  resources:
+  - syncs/finalizers
+  verbs:
   - update
 - apiGroups:
   - mpas.ocm.software
