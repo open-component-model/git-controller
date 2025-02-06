@@ -56,6 +56,7 @@ pullRequestTemplate:
 
 The Repository object manages git repositories for supported providers. At the moment of this writing the following
 providers are supported:
+
 - GitHub
 - Gitlab
 - Gitea
@@ -110,6 +111,6 @@ To get started simple run `tilt up` then hit `<space>` to enter Tilt's ui. You s
 
 ## Licensing
 
-Copyright 2022 SAP SE or an SAP affiliate company and Open Component Model contributors.
+Copyright 2025 SAP SE or an SAP affiliate company and Open Component Model contributors.
 Please see our [LICENSE](LICENSE) for copyright and license information.
 Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/open-component-model/ocm-controller).
