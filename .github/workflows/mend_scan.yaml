@@ -42,7 +42,7 @@ jobs:
         go-version-file: '${{ github.workspace }}/go.mod'
 
     - name: 'Setup jq'
-      uses: dcarbone/install-jq-action@v3.0.1
+      uses: dcarbone/install-jq-action@v3.1.1
       with:
         version: '1.7'
         
